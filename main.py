@@ -1,130 +1,150 @@
 from fastapi import FastAPI, Request
-from bale import Bot, types
+import requests
+import sqlite3
 
 TOKEN = "1163386061:P7CDH8D1hGtiZ1OB1-5jXuOClUgRK1y3TeU"
-bot = Bot(TOKEN)
+BASE_URL = f"https://tapi.bale.ai/bot{TOKEN}"
 
 app = FastAPI()
 
 # -----------------------------
-# دیتابیس ساده (در حافظه)
+# دیتابیس SQLite
 # -----------------------------
-files_db = []   # هر پست کانال اینجا ذخیره می‌شود
+conn = sqlite3.connect("files.db", check_same_thread=False)
+cur = conn.cursor()
+
+cur.execute("""
+CREATE TABLE IF NOT EXISTS files (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    text TEXT,
+    tags TEXT
+)
+""")
+conn.commit()
 
 def extract_tags(text):
     return [w for w in text.split() if w.startswith("#")]
 
-# -----------------------------
-# کیبوردهای ربات
-# -----------------------------
-def keyboard_start():
-    return types.ReplyKeyboardMarkup(
-        keyboard=[
-            [types.KeyboardButton(text="خرید")],
-            [types.KeyboardButton(text="رهن و اجاره")]
-        ],
-        resize_keyboard=True
-    )
+def save_file(text):
+    tags = " ".join(extract_tags(text))
+    cur.execute("INSERT INTO files (text, tags) VALUES (?, ?)", (text, tags))
+    conn.commit()
 
-def keyboard_khab():
-    return types.ReplyKeyboardMarkup(
-        keyboard=[
-            [types.KeyboardButton(text="۲ خواب")],
-            [types.KeyboardButton(text="۳ خواب")]
-        ],
-        resize_keyboard=True
-    )
+def search_files(kind, khab=None, budje=None):
+    q = "SELECT text FROM files WHERE tags LIKE ?"
+    params = [f"%#{kind}%"]
 
-def keyboard_budje():
-    return types.ReplyKeyboardMarkup(
-        keyboard=[
-            [types.KeyboardButton(text="۲۰ تا ۲۵ میلیارد")],
-            [types.KeyboardButton(text="۲۵ تا ۳۰ میلیارد")],
-            [types.KeyboardButton(text="۳۰ تا ۴۰ میلیارد")],
-            [types.KeyboardButton(text="۴۰ تا ۵۰ میلیارد")],
-            [types.KeyboardButton(text="۵۰ میلیارد به بالا")]
-        ],
-        resize_keyboard=True
-    )
+    if khab:
+        q += " AND tags LIKE ?"
+        params.append(f"%#{khab}%")
+
+    if budje:
+        q += " AND tags LIKE ?"
+        params.append(f"%{budje}%")
+
+    cur.execute(q, params)
+    return [row[0] for row in cur.fetchall()]
 
 # -----------------------------
-# وبهوک بله
+# ارسال پیام
+# -----------------------------
+def send_message(chat_id, text, keyboard=None):
+    payload = {"chat_id": chat_id, "text": text}
+    if keyboard:
+        payload["reply_markup"] = keyboard
+    requests.post(f"{BASE_URL}/sendMessage", json=payload)
+
+# -----------------------------
+# کیبوردها
+# -----------------------------
+def kb_start():
+    return {
+        "keyboard": [
+            [{"text": "خرید"}],
+            [{"text": "رهن و اجاره"}]
+        ],
+        "resize_keyboard": True
+    }
+
+def kb_khab():
+    return {
+        "keyboard": [
+            [{"text": "۲ خواب"}],
+            [{"text": "۳ خواب"}]
+        ],
+        "resize_keyboard": True
+    }
+
+def kb_budje():
+    return {
+        "keyboard": [
+            [{"text": "۲۰ تا ۲۵ میلیارد"}],
+            [{"text": "۲۵ تا ۳۰ میلیارد"}],
+            [{"text": "۳۰ تا ۴۰ میلیارد"}],
+            [{"text": "۴۰ تا ۵۰ میلیارد"}],
+            [{"text": "۵۰ میلیارد به بالا"}]
+        ],
+        "resize_keyboard": True
+    }
+
+# -----------------------------
+# وبهوک
 # -----------------------------
 @app.post("/")
 async def webhook(req: Request):
     data = await req.json()
-    update = types.Update(**data)
 
-    # -----------------------------
     # ذخیره پست‌های کانال
-    # -----------------------------
-    if update.message and update.message.chat.type == "channel":
-        text = update.message.text or ""
-        tags = extract_tags(text)
-
-        files_db.append({
-            "text": text,
-            "tags": tags
-        })
-
+    if "message" in data and data["message"]["chat"]["type"] == "channel":
+        text = data["message"].get("text", "")
+        if "#موجود" in text:
+            save_file(text)
         return {"ok": True}
 
-    # -----------------------------
     # پیام‌های بازو
-    # -----------------------------
-    if update.message and update.message.chat.type == "private":
-        chat_id = update.message.chat.id
-        text = update.message.text
+    if "message" in data and data["message"]["chat"]["type"] == "private":
+        chat_id = data["message"]["chat"]["id"]
+        text = data["message"].get("text", "")
 
-        # مرحله اول
+        # شروع
         if text == "/start":
-            bot.send_message(chat_id, "نوع عملیات را انتخاب کن:", reply_markup=keyboard_start())
+            send_message(chat_id, "نوع عملیات را انتخاب کن:", kb_start())
             return {"ok": True}
 
-        # مرحله دوم
+        # انتخاب نوع معامله
         if text == "خرید":
-            bot.send_message(chat_id, "تعداد خواب را انتخاب کن:", reply_markup=keyboard_khab())
+            send_message(chat_id, "تعداد خواب را انتخاب کن:", kb_khab())
             return {"ok": True}
 
         if text == "رهن و اجاره":
-            bot.send_message(chat_id, "تعداد خواب را انتخاب کن:", reply_markup=keyboard_khab())
+            send_message(chat_id, "تعداد خواب را انتخاب کن:", kb_khab())
             return {"ok": True}
 
-        # مرحله سوم
+        # انتخاب خواب
         if text in ["۲ خواب", "۳ خواب"]:
-            # اگر خرید بود → بودجه‌ها
-            bot.send_message(chat_id, "بازه بودجه را انتخاب کن:", reply_markup=keyboard_budje())
+            send_message(chat_id, "بازه بودجه را انتخاب کن:", kb_budje())
             return {"ok": True}
 
-        # مرحله نهایی خرید → فیلتر کامل
-        if text in [
-            "۲۰ تا ۲۵ میلیارد",
-            "۲۵ تا ۳۰ میلیارد",
-            "۳۰ تا ۴۰ میلیارد",
-            "۴۰ تا ۵۰ میلیارد",
-            "۵۰ میلیارد به بالا"
-        ]:
-            bot.send_message(chat_id, "در حال جستجو بین فایل‌های خرید...")
+        # انتخاب بودجه → فیلتر
+        budje_map = {
+            "۲۰ تا ۲۵ میلیارد": "#۲۰میلیارد",
+            "۲۵ تا ۳۰ میلیارد": "#۳۰میلیارد",
+            "۳۰ تا ۴۰ میلیارد": "#۳۰میلیارد",
+            "۴۰ تا ۵۰ میلیارد": "#۴۰میلیارد",
+            "۵۰ میلیارد به بالا": "#۵۰میلیارد_به_بالا"
+        }
 
-            # تبدیل بودجه به هشتگ
-            budje_tag = {
-                "۲۰ تا ۲۵ میلیارد": "#۲۰میلیارد",
-                "۲۵ تا ۳۰ میلیارد": "#۳۰میلیارد",
-                "۳۰ تا ۴۰ میلیارد": "#۳۰میلیارد",
-                "۴۰ تا ۵۰ میلیارد": "#۴۰میلیارد",
-                "۵۰ میلیارد به بالا": "#۵۰میلیارد_به_بالا"
-            }[text]
+        if text in budje_map:
+            budje_tag = budje_map[text]
+            send_message(chat_id, "در حال جستجو...")
 
-            results = []
-            for f in files_db:
-                if "#فروش" in f["tags"] and budje_tag in f["tags"]:
-                    results.append(f["text"])
+            results = search_files("فروش", "۲خواب", budje_tag)
 
             if not results:
-                bot.send_message(chat_id, "هیچ فایل مطابق پیدا نشد.")
+                send_message(chat_id, "هیچ فایل مطابق پیدا نشد.")
             else:
                 for r in results:
-                    bot.send_message(chat_id, r)
+                    send_message(chat_id, r)
 
             return {"ok": True}
 
