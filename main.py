@@ -248,10 +248,12 @@ def inline_action(fid):
 async def webhook(req: Request):
     data = await req.json()
 
-    # پیام خصوصی یا کانال ممکن است در message یا body یا data باشد
-    msg = data.get("message") or data.get("body") or data.get("data")
-    if not msg:
+    # پیام خصوصی یا کانال ممکن است در update باشد
+    update = data.get("update") or data.get("message") or data.get("body") or data.get("data")
+    if not update:
         return {"ok": True}
+
+    msg = update.get("message") or update
 
     chat = msg.get("chat", {})
     txt = msg.get("text", "") or msg.get("caption", "")
@@ -386,25 +388,5 @@ async def webhook(req: Request):
 
             conn.close()
             return {"ok": True}
-
-    # Callback
-    if "callback_query" in data:
-        cq = data["callback_query"]
-        cid = cq["message"]["chat"]["id"]
-        cb_data = cq["data"]
-
-        if cb_data.startswith("fav:"):
-            fid = cb_data.split(":")[1]
-
-            conn = get_db()
-            cur = conn.cursor()
-
-            cur.execute("INSERT OR IGNORE INTO favorites (user_id, file_id) VALUES (?, ?)",
-                        (cq["from"]["id"], fid))
-
-            conn.commit()
-            conn.close()
-
-            send_msg(cid, "✅ به علاقه‌مندی‌ها اضافه شد.")
 
     return {"ok": True}
