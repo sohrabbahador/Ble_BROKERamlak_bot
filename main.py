@@ -3,7 +3,7 @@ import requests
 import sqlite3
 import re
 
-TOKEN = "1163386061:P7CDH8D1hGtiZ1OB1-5jXuOCIUgRK1y3TeU"
+TOKEN = "296563931:Noek97TDpcSv15596h1wEG1cVjtdCGJyNg8"
 BASE_URL = f"https://tapi.bale.ai/bot{TOKEN}"
 MAIN_CHANNEL_URL = "https://ble.ir/BROKER_amlak"
 
@@ -242,18 +242,16 @@ def inline_action(fid):
         ]
     }
 
-# ---------------------- Webhook ----------------------
+# ---------------------- Webhook (اصلاح‌شده و سازگار با بله) ----------------------
 
 @app.post("/")
 async def webhook(req: Request):
     data = await req.json()
 
-    # پیام خصوصی یا کانال ممکن است در update باشد
-    update = data.get("update") or data.get("message") or data.get("body") or data.get("data")
-    if not update:
+    # پیام خصوصی یا کانال همیشه داخل message است
+    msg = data.get("message") or data.get("body") or data.get("data")
+    if not msg:
         return {"ok": True}
-
-    msg = update.get("message") or update
 
     chat = msg.get("chat", {})
     txt = msg.get("text", "") or msg.get("caption", "")
