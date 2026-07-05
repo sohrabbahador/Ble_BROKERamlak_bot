@@ -485,4 +485,20 @@ async def webhook(req: Request):
             page += 1
             set_session(user_id, page=page)
 
-            results = search_files(kind, khab, bmin, bmax, mmin,
+            results = search_files(kind, khab, bmin, bmax, mmin, mmax, page)
+
+            if not results:
+                send_message(chat_id, "❌ فایل بیشتری وجود ندارد.", kb_next_page())
+            else:
+                for fid, ftext, photo_id, price, meter, khab_val in results:
+                    caption = f"🏡 فایل:\n\n{ftext}"
+                    kb_inline = inline_main(fid)
+                    if photo_id:
+                        send_photo(chat_id, photo_id, caption, kb_inline)
+                    else:
+                        send_message(chat_id, caption, kb_inline)
+
+                send_message(chat_id, "📄 اگر باز هم می‌خوای ادامه بدی، دوباره «صفحه بعد» را بزن.", kb_next_page())
+            return {"ok": True}
+
+    return {"ok": True}
