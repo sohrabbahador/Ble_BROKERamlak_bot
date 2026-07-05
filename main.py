@@ -3,7 +3,7 @@ import requests
 import sqlite3
 import re
 
-TOKEN = "توکن_ربات_تو"
+TOKEN = "1163386061:P7CDH8D1hGtiZ1OB1-5jXuOClUgRK1y3TeU"
 BASE_URL = f"https://tapi.bale.ai/bot{TOKEN}"
 
 app = FastAPI()
