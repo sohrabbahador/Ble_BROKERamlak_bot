@@ -9,6 +9,11 @@ MAIN_CHANNEL_URL = "https://ble.ir/BROKER_amlak"
 
 app = FastAPI()
 
+# ---------------------- HEALTH CHECK ----------------------
+@app.get("/")
+def home():
+    return {"ok": True}
+
 # ---------------------- Database ----------------------
 
 def get_db():
@@ -261,7 +266,6 @@ async def webhook(req: Request):
         txt = m.get("text", "")
         user_id = cid
 
-        # Start
         if txt == "/start" or txt == "بازگشت به منو اصلی":
             set_session(user_id, page=1)
             send_msg(cid,
@@ -269,13 +273,11 @@ async def webhook(req: Request):
                      "لطفاً نوع عملیات را انتخاب کنید:",
                      kb_main())
 
-        # نوع عملیات
         elif txt in ["🏠 خرید", "🔑 رهن و اجاره"]:
             kind = "فروش" if "خرید" in txt else "رهن_اجاره"
             set_session(user_id, kind=kind, page=1)
             send_msg(cid, "تعداد خواب مورد نظر را انتخاب کنید:", kb_khab())
 
-        # خواب
         elif txt in ["۲ خواب", "۳ خواب"]:
             set_session(user_id, khab=txt.replace(" ", ""))
             s = get_session(user_id)
@@ -285,7 +287,6 @@ async def webhook(req: Request):
             else:
                 send_msg(cid, "📏 متراژ مورد نظر را انتخاب کنید:", kb_meter())
 
-        # بودجه
         elif txt in ["۲۰ تا ۳۰ میلیارد", "۳۰ تا ۴۰ میلیارد", "۴۰ تا ۵۰ میلیارد", "۵۰ میلیارد به بالا"]:
             b_map = {
                 "۲۰ تا ۳۰ میلیارد": (20, 30),
@@ -298,7 +299,6 @@ async def webhook(req: Request):
             set_session(user_id, budje_min=bmin, budje_max=bmax)
             send_msg(cid, "📏 متراژ مورد نظر را انتخاب کنید:", kb_meter())
 
-        # متراژ
         elif txt in ["کمتر از 100 متر", "100 تا 150 متر", "150 تا 200 متر", "بیشتر از 200 متر"]:
             m_map = {
                 "کمتر از 100 متر": (0, 100),
@@ -330,7 +330,6 @@ async def webhook(req: Request):
 
                 send_msg(cid, "📄 برای دیدن موارد بیشتر، دکمه زیر را بزنید:", kb_next())
 
-        # صفحه بعد
         elif txt == "صفحه بعد":
             s = get_session(user_id)
             set_session(user_id, page=s["page"] + 1)
@@ -355,11 +354,9 @@ async def webhook(req: Request):
 
                 send_msg(cid, "📄 صفحه بعد را بزنید:", kb_next())
 
-        # جستجوی سریع
         elif "جستجوی سریع" in txt:
             send_msg(cid, "🔍 نام محله یا متراژ را بفرستید (مثلاً: جنت آباد)")
 
-        # جستجو با متن
         else:
             conn = get_db()
             cur = conn.cursor()
