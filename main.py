@@ -72,7 +72,7 @@ def search_files(kind, khab, bmin, bmax, mmin, mmax, page):
     q += " LIMIT ? OFFSET ?"; params.extend([limit, offset])
     cur.execute(q, params)
 
-هوش مصنوعی:     res = cur.fetchall(); conn.close()
+res = cur.fetchall(); conn.close()
     return res
 
 def send_msg(chat_id, text, kb=None):
