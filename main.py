@@ -75,7 +75,7 @@ def extract_info(text):
             amenities.append(item)
     amenities = ",".join(amenities)
 
-    loc_match = re.search(r"(فردیس|کرج|فلکه\s*\w+|شهرک\s*\w+)", text)
+    loc_match = re.search(r"(جنت‌آباد جنوبی|جنت آباد|تهران|فردیس|کرج|فلکه\s*\w+|شهرک\s*\w+)", text)
     location = loc_match.group(1) if loc_match else None
 
     return kind, khab, price, meter, amenities, location
@@ -325,22 +325,22 @@ async def webhook(req: Request):
             cur.execute("SELECT text FROM files WHERE id=?", (file_id,))
             row = cur.fetchone()
             if row:
-                send_message(chat_id, f"جزئیات کامل:\n\n{row[0]}")
+                send_message(chat_id, f"ℹ️ جزئیات کامل:\n\n{row[0]}")
 
         elif data_cb.startswith("favadd:"):
             file_id = int(data_cb.split(":")[1])
             add_favorite(user_id, file_id)
-            send_message(chat_id, "✅ به علاقه‌مندی‌ها اضافه شد.")
+            send_message(chat_id, "⭐ با موفقیت به علاقه‌مندی‌ها اضافه شد.")
 
         elif data_cb.startswith("similar:"):
             file_id = int(data_cb.split(":")[1])
             sims = suggest_similar(file_id)
             if not sims:
-                send_message(chat_id, "فایل مشابهی یافت نشد.")
+                send_message(chat_id, "❌ فایل مشابهی یافت نشد.")
             else:
                 send_message(chat_id, "🔁 فایل‌های مشابه:")
                 for fid, ftext, photo_id in sims:
-                    caption = f"🏡 فایل مشابه:\n\n{ftext}"
+                    caption = f"🏙️ فایل مشابه:\n\n{ftext}"
                     kb_inline = inline_main(fid)
                     if photo_id:
                         send_photo(chat_id, photo_id, caption, kb_inline)
@@ -349,7 +349,7 @@ async def webhook(req: Request):
 
         return {"ok": True}
 
-    # پیام‌های خصوصی (بازو)
+    # پیام‌های خصوصی
     if "message" in data and data["message"]["chat"]["type"] == "private":
         msg = data["message"]
         chat_id = msg["chat"]["id"]
@@ -359,14 +359,14 @@ async def webhook(req: Request):
         # شروع
         if text == "/start" or text == "بازگشت به منو اصلی":
             set_session(user_id, page=1)
-            send_message(chat_id, "نوع عملیات را انتخاب کن:", kb_start())
+            send_message(chat_id, "✨ لطفاً نوع عملیات را انتخاب کن:", kb_start())
             return {"ok": True}
 
         # علاقه‌مندی‌ها
         if text == "⭐ علاقه‌مندی‌ها":
             favs = list_favorites(user_id)
             if not favs:
-                send_message(chat_id, "هنوز هیچ فایل علاقه‌مندی نداری.")
+                send_message(chat_id, "⭐ هنوز هیچ فایل علاقه‌مندی نداری.")
             else:
                 send_message(chat_id, "⭐ فایل‌های علاقه‌مندی:")
                 for fid, ftext, photo_id in favs:
@@ -380,20 +380,34 @@ async def webhook(req: Request):
 
         # جستجوی سریع
         if text == "🔍 جستجوی سریع":
-            send_message(chat_id, "عبارت مورد نظر را بنویس (مثلاً: فردیس، ۱۲۰ متر، ۳ خواب، ۴۰ میلیارد).")
-            set_session(user_id, kind=None, khab=None, budje_min=None, budje_max=None, meter_min=None, meter_max=None, page=1)
+            send_message(
+                chat_id,
+                "✨ عبارت مورد نظر را بنویس:\n\n"
+                "مثال: «جنت‌آباد جنوبی»، «۱۲۰ متر»، «۳ خواب»، «۴۰ میلیارد»\n\n"
+                "🔎 من هر چیزی که بنویسی را در تمام فایل‌های موجود جستجو می‌کنم."
+            )
+            set_session(
+                user_id,
+                kind=None,
+                khab=None,
+                budje_min=None,
+                budje_max=None,
+                meter_min=None,
+                meter_max=None,
+                page=1
+            )
             return {"ok": True}
 
-        # اگر قبلاً گفت جستجوی سریع، هر متن بعدی را به عنوان query بگیر
+        # اگر در حالت جستجوی سریع هستیم
         kind, khab, bmin, bmax, mmin, mmax, page = get_session(user_id)
         if kind is None and khab is None and bmin is None and mmin is None and text not in ["خرید", "رهن و اجاره", "۲ خواب", "۳ خواب"]:
             results = quick_search(text)
             if not results:
-                send_message(chat_id, "چیزی مطابق جستجو پیدا نشد.")
+                send_message(chat_id, "❌ هیچ موردی مطابق جستجو پیدا نشد.")
             else:
-                send_message(chat_id, "نتایج جستجوی سریع:")
+                send_message(chat_id, "🔎 نتایج جستجوی سریع:")
                 for fid, ftext, photo_id in results:
-                    caption = f"🏡 فایل:\n\n{ftext}"
+                    caption = f"🏙️ فایل پیشنهادی:\n\n{ftext}"
                     kb_inline = inline_main(fid)
                     if photo_id:
                         send_photo(chat_id, photo_id, caption, kb_inline)
@@ -405,7 +419,7 @@ async def webhook(req: Request):
         if text in ["خرید", "رهن و اجاره"]:
             kind_tag = "فروش" if text == "خرید" else "رهن_اجاره"
             set_session(user_id, kind=kind_tag, page=1)
-            send_message(chat_id, "تعداد خواب را انتخاب کن:", kb_khab())
+            send_message(chat_id, "🏡 تعداد خواب را انتخاب کن:", kb_khab())
             return {"ok": True}
 
         # خواب
@@ -415,9 +429,9 @@ async def webhook(req: Request):
 
             kind, *_ = get_session(user_id)
             if kind == "فروش":
-                send_message(chat_id, "بازه بودجه را انتخاب کن:", kb_budje_sale())
+                send_message(chat_id, "💰 بازه بودجه را انتخاب کن:", kb_budje_sale())
             else:
-                send_message(chat_id, "متراژ مورد نظر را انتخاب کن:", kb_meter())
+                send_message(chat_id, "📏 متراژ مورد نظر را انتخاب کن:", kb_meter())
             return {"ok": True}
 
         # بودجه خرید
@@ -431,7 +445,7 @@ async def webhook(req: Request):
         if text in budje_map_sale:
             bmin, bmax = budje_map_sale[text]
             set_session(user_id, budje_min=bmin, budje_max=bmax)
-            send_message(chat_id, "متراژ مورد نظر را انتخاب کن:", kb_meter())
+            send_message(chat_id, "📏 متراژ مورد نظر را انتخاب کن:", kb_meter())
             return {"ok": True}
 
         # متراژ
@@ -447,12 +461,12 @@ async def webhook(req: Request):
             set_session(user_id, meter_min=mmin, meter_max=mmax)
 
             kind, khab, bmin, bmax, mmin, mmax, page = get_session(user_id)
-            send_message(chat_id, "در حال جستجو...")
+            send_message(chat_id, "⏳ در حال جستجو...")
 
             results = search_files(kind, khab, bmin, bmax, mmin, mmax, page)
 
             if not results:
-                send_message(chat_id, "هیچ فایل مطابق پیدا نشد.", kb_next_page())
+                send_message(chat_id, "❌ هیچ فایل مطابق پیدا نشد.", kb_next_page())
             else:
                 for fid, ftext, photo_id, price, meter, khab_val in results:
                     caption = f"🏡 فایل املاک:\n\n{ftext}"
@@ -462,7 +476,7 @@ async def webhook(req: Request):
                     else:
                         send_message(chat_id, caption, kb_inline)
 
-                send_message(chat_id, "برای دیدن فایل‌های بیشتر، «صفحه بعد» را بزن.", kb_next_page())
+                send_message(chat_id, "📄 برای دیدن فایل‌های بیشتر، «صفحه بعد» را بزن.", kb_next_page())
             return {"ok": True}
 
         # صفحه بعد
@@ -471,20 +485,4 @@ async def webhook(req: Request):
             page += 1
             set_session(user_id, page=page)
 
-            results = search_files(kind, khab, bmin, bmax, mmin, mmax, page)
-
-            if not results:
-                send_message(chat_id, "فایل بیشتری وجود ندارد.", kb_next_page())
-            else:
-                for fid, ftext, photo_id, price, meter, khab_val in results:
-                    caption = f"🏡 فایل:\n\n{ftext}"
-                    kb_inline = inline_main(fid)
-                    if photo_id:
-                        send_photo(chat_id, photo_id, caption, kb_inline)
-                    else:
-                        send_message(chat_id, caption, kb_inline)
-
-                send_message(chat_id, "اگر باز هم می‌خوای ادامه بدی، دوباره «صفحه بعد» را بزن.", kb_next_page())
-            return {"ok": True}
-
-    return {"ok": True}
+            results = search_files(kind, khab, bmin, bmax, mmin,
