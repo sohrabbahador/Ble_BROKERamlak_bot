@@ -21,7 +21,6 @@ CREATE TABLE IF NOT EXISTS files (
     kind TEXT,
     khab TEXT,
     price INTEGER,
-    meter INTEGER,
     amenities TEXT,
     location TEXT,
     photo_id TEXT
@@ -35,8 +34,6 @@ CREATE TABLE IF NOT EXISTS sessions (
     khab TEXT,
     budje_min INTEGER,
     budje_max INTEGER,
-    meter_min INTEGER,
-    meter_max INTEGER,
     page INTEGER
 )
 """)
@@ -52,22 +49,16 @@ CREATE TABLE IF NOT EXISTS favorites (
 conn.commit()
 
 # -----------------------------
-# استخراج اطلاعات از متن
+# استخراج اطلاعات فایل
 # -----------------------------
 def extract_info(text):
-    if "رهن" in text or "اجاره" in text:
-        kind = "رهن_اجاره"
-    else:
-        kind = "فروش"
+    kind = "رهن_اجاره" if ("رهن" in text or "اجاره" in text) else "فروش"
 
     khab_match = re.search(r"(\d+)\s*خواب", text)
     khab = f"{khab_match.group(1)}خواب" if khab_match else None
 
     price_match = re.search(r"(\d+)\s*میلیارد", text)
     price = int(price_match.group(1)) if price_match else None
-
-    meter_match = re.search(r"(\d+)\s*متر", text)
-    meter = int(meter_match.group(1)) if meter_match else None
 
     amenities = []
     for item in ["آسانسور", "پارکینگ", "انباری", "بالکن", "نوساز"]:
@@ -78,17 +69,17 @@ def extract_info(text):
     loc_match = re.search(r"(جنت‌آباد جنوبی|جنت آباد|تهران|فردیس|کرج|فلکه\s*\w+|شهرک\s*\w+)", text)
     location = loc_match.group(1) if loc_match else None
 
-    return kind, khab, price, meter, amenities, location
+    return kind, khab, price, amenities, location
 
 # -----------------------------
-# ذخیره فایل فقط اگر «موجود» باشد
+# ذخیره فایل کانال
 # -----------------------------
 def save_file(text, photo_id=None):
-    kind, khab, price, meter, amenities, location = extract_info(text)
+    kind, khab, price, amenities, location = extract_info(text)
     cur.execute("""
-        INSERT INTO files (text, kind, khab, price, meter, amenities, location, photo_id)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    """, (text, kind, khab, price, meter, amenities, location, photo_id))
+        INSERT INTO files (text, kind, khab, price, amenities, location, photo_id)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+    """, (text, kind, khab, price, amenities, location, photo_id))
     conn.commit()
 
 # -----------------------------
@@ -98,46 +89,39 @@ def set_session(user_id, **kwargs):
     cur.execute("SELECT user_id FROM sessions WHERE user_id=?", (user_id,))
     exists = cur.fetchone()
 
-    if exists:
-        for key, value in kwargs.items():
-            cur.execute(f"UPDATE sessions SET {key}=? WHERE user_id=?", (value, user_id))
-    else:
+    if not exists:
         cur.execute("""
-            INSERT INTO sessions (user_id, kind, khab, budje_min, budje_max, meter_min, meter_max, page)
-            VALUES (?, NULL, NULL, NULL, NULL, NULL, NULL, 1)
+            INSERT INTO sessions (user_id, kind, khab, budje_min, budje_max, page)
+            VALUES (?, NULL, NULL, NULL, NULL, 1)
         """, (user_id,))
-        for key, value in kwargs.items():
-            cur.execute(f"UPDATE sessions SET {key}=? WHERE user_id=?", (value, user_id))
+
+    for key, value in kwargs.items():
+        cur.execute(f"UPDATE sessions SET {key}=? WHERE user_id=?", (value, user_id))
 
     conn.commit()
 
 def get_session(user_id):
     cur.execute("""
-        SELECT kind, khab, budje_min, budje_max, meter_min, meter_max, page
+        SELECT kind, khab, budje_min, budje_max, page
         FROM sessions WHERE user_id=?
     """, (user_id,))
     return cur.fetchone()
 
 # -----------------------------
-# فیلتر اصلی
+# فیلتر خرید (بدون متراژ)
 # -----------------------------
-def search_files(kind, khab, bmin, bmax, mmin, mmax, page):
-    q = "SELECT id, text, photo_id, price, meter, khab FROM files WHERE kind=?"
-    params = [kind]
+def search_buy(khab, bmin, bmax, page):
+    q = "SELECT id, text, photo_id FROM files WHERE kind='فروش'"
+    params = []
 
     if khab:
         q += " AND khab=?"
         params.append(khab)
 
-    if kind == "فروش" and bmin is not None and bmax is not None:
+    if bmin is not None and bmax is not None:
         q += " AND price BETWEEN ? AND ?"
         params.append(bmin)
         params.append(bmax)
-
-    if mmin is not None and mmax is not None:
-        q += " AND meter BETWEEN ? AND ?"
-        params.append(mmin)
-        params.append(mmax)
 
     limit = 5
     offset = (page - 1) * limit
@@ -148,35 +132,20 @@ def search_files(kind, khab, bmin, bmax, mmin, mmax, page):
     return cur.fetchall()
 
 # -----------------------------
-# پیشنهاد فایل مشابه
+# فیلتر رهن و اجاره
 # -----------------------------
-def suggest_similar(file_id):
-    cur.execute("SELECT price, meter, khab, kind FROM files WHERE id=?", (file_id,))
-    row = cur.fetchone()
-    if not row:
-        return []
-
-    price, meter, khab, kind = row
-
-    q = "SELECT id, text, photo_id FROM files WHERE kind=?"
-    params = [kind]
+def search_rent(khab, page):
+    q = "SELECT id, text, photo_id FROM files WHERE kind='رهن_اجاره'"
+    params = []
 
     if khab:
         q += " AND khab=?"
         params.append(khab)
 
-    if price is not None:
-        q += " AND price BETWEEN ? AND ?"
-        params.append(max(price - 5, 0))
-        params.append(price + 5)
-
-    if meter is not None:
-        q += " AND meter BETWEEN ? AND ?"
-        params.append(max(meter - 20, 0))
-        params.append(meter + 20)
-
-    q += " AND id != ? LIMIT 3"
-    params.append(file_id)
+    limit = 5
+    offset = (page - 1) * limit
+    q += " LIMIT ? OFFSET ?"
+    params.extend([limit, offset])
 
     cur.execute(q, params)
     return cur.fetchall()
@@ -203,8 +172,7 @@ def list_favorites(user_id):
 # جستجوی سریع
 # -----------------------------
 def quick_search(query):
-    q = "SELECT id, text, photo_id FROM files WHERE text LIKE ?"
-    cur.execute(q, (f"%{query}%",))
+    cur.execute("SELECT id, text, photo_id FROM files WHERE text LIKE ?", (f"%{query}%",))
     return cur.fetchall()
 
 # -----------------------------
@@ -256,17 +224,6 @@ def kb_budje_sale():
         "resize_keyboard": True
     }
 
-def kb_meter():
-    return {
-        "keyboard": [
-            [{"text": "کمتر از 100 متر"}],
-            [{"text": "100 تا 150 متر"}],
-            [{"text": "150 تا 200 متر"}],
-            [{"text": "بیشتر از 200 متر"}]
-        ],
-        "resize_keyboard": True
-    }
-
 def kb_next_page():
     return {
         "keyboard": [
@@ -285,9 +242,6 @@ def inline_main(file_id):
             ],
             [
                 {"text": "⭐ افزودن به علاقه‌مندی‌ها", "callback_data": f"favadd:{file_id}"}
-            ],
-            [
-                {"text": "🔁 فایل‌های مشابه", "callback_data": f"similar:{file_id}"}
             ]
         ]
     }
@@ -299,18 +253,18 @@ def inline_main(file_id):
 async def webhook(req: Request):
     data = await req.json()
 
-    # کانال: ذخیره فقط اگر «موجود» باشد
+    # پیام کانال
     if "message" in data and data["message"]["chat"]["type"] == "channel":
         msg = data["message"]
         text = msg.get("text", "") or msg.get("caption", "")
-        photo_id = None
-        if "photo" in msg:
-            photo_id = msg["photo"][-1]["file_id"]
+        photo_id = msg["photo"][-1]["file_id"] if "photo" in msg else None
+
         if "موجود" in text:
             save_file(text, photo_id)
+
         return {"ok": True}
 
-    # کال‌بک اینلاین
+    # کال‌بک
     if "callback_query" in data:
         cq = data["callback_query"]
         chat_id = cq["message"]["chat"]["id"]
@@ -318,38 +272,23 @@ async def webhook(req: Request):
         data_cb = cq["data"]
 
         if data_cb.startswith("contact:"):
-            send_message(chat_id, "📞 شماره تماس: 0912xxxxxxx")
+            send_message(chat_id, "📞 تماس مستقیم:\n09123692401")
 
         elif data_cb.startswith("detail:"):
             file_id = int(data_cb.split(":")[1])
             cur.execute("SELECT text FROM files WHERE id=?", (file_id,))
             row = cur.fetchone()
             if row:
-                send_message(chat_id, f"ℹ️ جزئیات کامل:\n\n{row[0]}")
+                send_message(chat_id, f"ℹ️ جزئیات:\n\n{row[0]}")
 
         elif data_cb.startswith("favadd:"):
             file_id = int(data_cb.split(":")[1])
             add_favorite(user_id, file_id)
-            send_message(chat_id, "⭐ با موفقیت به علاقه‌مندی‌ها اضافه شد.")
-
-        elif data_cb.startswith("similar:"):
-            file_id = int(data_cb.split(":")[1])
-            sims = suggest_similar(file_id)
-            if not sims:
-                send_message(chat_id, "❌ فایل مشابهی یافت نشد.")
-            else:
-                send_message(chat_id, "🔁 فایل‌های مشابه:")
-                for fid, ftext, photo_id in sims:
-                    caption = f"🏙️ فایل مشابه:\n\n{ftext}"
-                    kb_inline = inline_main(fid)
-                    if photo_id:
-                        send_photo(chat_id, photo_id, caption, kb_inline)
-                    else:
-                        send_message(chat_id, caption, kb_inline)
+            send_message(chat_id, "⭐ به علاقه‌مندی‌ها اضافه شد.")
 
         return {"ok": True}
 
-    # پیام‌های خصوصی
+    # پیام خصوصی
     if "message" in data and data["message"]["chat"]["type"] == "private":
         msg = data["message"]
         chat_id = msg["chat"]["id"]
@@ -357,16 +296,15 @@ async def webhook(req: Request):
         text = msg.get("text", "")
 
         # شروع
-        if text == "/start" or text == "بازگشت به منو اصلی":
-            set_session(user_id, page=1)
-            send_message(chat_id, "✨ لطفاً نوع عملیات را انتخاب کن:", kb_start())
+        if text == "/start":
+            send_message(chat_id, "سلام 👋\nبه بازوی املاک خوش آمدید ✨", kb_start())
             return {"ok": True}
 
         # علاقه‌مندی‌ها
         if text == "⭐ علاقه‌مندی‌ها":
             favs = list_favorites(user_id)
             if not favs:
-                send_message(chat_id, "⭐ هنوز هیچ فایل علاقه‌مندی نداری.")
+                send_message(chat_id, "⭐ هیچ فایل علاقه‌مندی نداری.")
             else:
                 send_message(chat_id, "⭐ فایل‌های علاقه‌مندی:")
                 for fid, ftext, photo_id in favs:
@@ -380,34 +318,22 @@ async def webhook(req: Request):
 
         # جستجوی سریع
         if text == "🔍 جستجوی سریع":
-            send_message(
-                chat_id,
-                "✨ عبارت مورد نظر را بنویس:\n\n"
-                "مثال: «جنت‌آباد جنوبی»، «۱۲۰ متر»، «۳ خواب»، «۴۰ میلیارد»\n\n"
-                "🔎 من هر چیزی که بنویسی را در تمام فایل‌های موجود جستجو می‌کنم."
+            send_message(chat_id,
+                "✨ عبارت مورد نظر را بنویس:\nمثال:\n«جنت‌آباد جنوبی»\n«۱۲۰ متر»\n«۳ خواب»\n«۴۰ میلیارد»"
             )
-            set_session(
-                user_id,
-                kind=None,
-                khab=None,
-                budje_min=None,
-                budje_max=None,
-                meter_min=None,
-                meter_max=None,
-                page=1
-            )
+            set_session(user_id, kind=None, khab=None, budje_min=None, budje_max=None, page=1)
             return {"ok": True}
 
-        # اگر در حالت جستجوی سریع هستیم
-        kind, khab, bmin, bmax, mmin, mmax, page = get_session(user_id)
-        if kind is None and khab is None and bmin is None and mmin is None and text not in ["خرید", "رهن و اجاره", "۲ خواب", "۳ خواب"]:
+        # حالت جستجوی سریع
+        kind, khab, bmin, bmax, page = get_session(user_id)
+        if kind is None and khab is None and bmin is None and text not in ["خرید", "رهن و اجاره", "۲ خواب", "۳ خواب"]:
             results = quick_search(text)
             if not results:
-                send_message(chat_id, "❌ هیچ موردی مطابق جستجو پیدا نشد.")
+                send_message(chat_id, "❌ هیچ موردی پیدا نشد.")
             else:
-                send_message(chat_id, "🔎 نتایج جستجوی سریع:")
+                send_message(chat_id, "🔎 نتایج:")
                 for fid, ftext, photo_id in results:
-                    caption = f"🏙️ فایل پیشنهادی:\n\n{ftext}"
+                    caption = f"🏙️ فایل:\n\n{ftext}"
                     kb_inline = inline_main(fid)
                     if photo_id:
                         send_photo(chat_id, photo_id, caption, kb_inline)
@@ -429,9 +355,24 @@ async def webhook(req: Request):
 
             kind, *_ = get_session(user_id)
             if kind == "فروش":
-                send_message(chat_id, "💰 بازه بودجه را انتخاب کن:", kb_budje_sale())
-            else:
-                send_message(chat_id, "📏 متراژ مورد نظر را انتخاب کن:", kb_meter())
+                send_message(chat_id, "💰 بودجه را انتخاب کن:", kb_budje_sale())
+            elif kind == "رهن_اجاره":
+                send_message(chat_id, "⏳ در حال جستجوی فایل‌های رهن و اجاره...")
+                kind, khab, bmin, bmax, page = get_session(user_id)
+                results = search_rent(khab, page)
+
+                if not results:
+                    send_message(chat_id, "❌ هیچ فایل رهن و اجاره مطابق پیدا نشد.", kb_next_page())
+                else:
+                    for fid, ftext, photo_id in results:
+                        caption = f"🏢 فایل رهن‌واجاره:\n\n{ftext}"
+                        kb_inline = inline_main(fid)
+                        if photo_id:
+                            send_photo(chat_id, photo_id, caption, kb_inline)
+                        else:
+                            send_message(chat_id, caption, kb_inline)
+
+                    send_message(chat_id, "📄 برای دیدن فایل‌های بیشتر، «صفحه بعد» را بزن.", kb_next_page())
             return {"ok": True}
 
         # بودجه خرید
@@ -445,31 +386,17 @@ async def webhook(req: Request):
         if text in budje_map_sale:
             bmin, bmax = budje_map_sale[text]
             set_session(user_id, budje_min=bmin, budje_max=bmax)
-            send_message(chat_id, "📏 متراژ مورد نظر را انتخاب کن:", kb_meter())
-            return {"ok": True}
 
-        # متراژ
-        meter_map = {
-            "کمتر از 100 متر": (0, 100),
-            "100 تا 150 متر": (100, 150),
-            "150 تا 200 متر": (150, 200),
-            "بیشتر از 200 متر": (200, 999)
-        }
-
-        if text in meter_map:
-            mmin, mmax = meter_map[text]
-            set_session(user_id, meter_min=mmin, meter_max=mmax)
-
-            kind, khab, bmin, bmax, mmin, mmax, page = get_session(user_id)
+            kind, khab, bmin, bmax, page = get_session(user_id)
             send_message(chat_id, "⏳ در حال جستجو...")
 
-            results = search_files(kind, khab, bmin, bmax, mmin, mmax, page)
+            results = search_buy(khab, bmin, bmax, page)
 
             if not results:
                 send_message(chat_id, "❌ هیچ فایل مطابق پیدا نشد.", kb_next_page())
             else:
-                for fid, ftext, photo_id, price, meter, khab_val in results:
-                    caption = f"🏡 فایل املاک:\n\n{ftext}"
+                for fid, ftext, photo_id in results:
+                    caption = f"🏡 فایل:\n\n{ftext}"
                     kb_inline = inline_main(fid)
                     if photo_id:
                         send_photo(chat_id, photo_id, caption, kb_inline)
@@ -481,16 +408,21 @@ async def webhook(req: Request):
 
         # صفحه بعد
         if text == "صفحه بعد":
-            kind, khab, bmin, bmax, mmin, mmax, page = get_session(user_id)
+            kind, khab, bmin, bmax, page = get_session(user_id)
             page += 1
             set_session(user_id, page=page)
 
-            results = search_files(kind, khab, bmin, bmax, mmin, mmax, page)
+            if kind == "فروش":
+                results = search_buy(khab, bmin, bmax, page)
+            elif kind == "رهن_اجاره":
+                results = search_rent(khab, page)
+            else:
+                results = []
 
             if not results:
                 send_message(chat_id, "❌ فایل بیشتری وجود ندارد.", kb_next_page())
             else:
-                for fid, ftext, photo_id, price, meter, khab_val in results:
+                for fid, ftext, photo_id in results:
                     caption = f"🏡 فایل:\n\n{ftext}"
                     kb_inline = inline_main(fid)
                     if photo_id:
@@ -498,7 +430,12 @@ async def webhook(req: Request):
                     else:
                         send_message(chat_id, caption, kb_inline)
 
-                send_message(chat_id, "📄 اگر باز هم می‌خوای ادامه بدی، دوباره «صفحه بعد» را بزن.", kb_next_page())
+                send_message(chat_id, "📄 ادامه بده:", kb_next_page())
+            return {"ok": True}
+
+        # بازگشت
+        if text == "بازگشت به منو اصلی":
+            send_message(chat_id, "منوی اصلی:", kb_start())
             return {"ok": True}
 
     return {"ok": True}
