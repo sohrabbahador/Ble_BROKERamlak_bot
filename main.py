@@ -248,22 +248,25 @@ def inline_action(fid):
 async def webhook(req: Request):
     data = await req.json()
 
-    # Channel messages
-    if "message" in data and data["message"]["chat"]["type"] == "channel":
-        m = data["message"]
-        txt = m.get("text", "") or m.get("caption", "")
-        pid = m["photo"][-1]["file_id"] if "photo" in m else None
-
-        if "موجود" in txt:
-            save_file(txt, pid)
-
+    # پیام خصوصی یا کانال ممکن است در message یا body یا data باشد
+    msg = data.get("message") or data.get("body") or data.get("data")
+    if not msg:
         return {"ok": True}
 
-    # Private messages
-    if "message" in data and data["message"]["chat"]["type"] == "private":
-        m = data["message"]
-        cid = m["chat"]["id"]
-        txt = m.get("text", "")
+    chat = msg.get("chat", {})
+    txt = msg.get("text", "") or msg.get("caption", "")
+    cid = chat.get("id")
+    ctype = chat.get("type")
+
+    # پیام کانال
+    if ctype == "channel":
+        pid = msg["photo"][-1]["file_id"] if "photo" in msg else None
+        if "موجود" in txt:
+            save_file(txt, pid)
+        return {"ok": True}
+
+    # پیام خصوصی
+    if ctype == "private":
         user_id = cid
 
         if txt == "/start" or txt == "بازگشت به منو اصلی":
@@ -272,11 +275,13 @@ async def webhook(req: Request):
                      "سلام جناب بهادر عزیز به ربات هوشمند **BROKER Amlak** خوش آمدید.\n"
                      "لطفاً نوع عملیات را انتخاب کنید:",
                      kb_main())
+            return {"ok": True}
 
         elif txt in ["🏠 خرید", "🔑 رهن و اجاره"]:
             kind = "فروش" if "خرید" in txt else "رهن_اجاره"
             set_session(user_id, kind=kind, page=1)
             send_msg(cid, "تعداد خواب مورد نظر را انتخاب کنید:", kb_khab())
+            return {"ok": True}
 
         elif txt in ["۲ خواب", "۳ خواب"]:
             set_session(user_id, khab=txt.replace(" ", ""))
@@ -286,6 +291,7 @@ async def webhook(req: Request):
                 send_msg(cid, "💰 بازه بودجه را انتخاب کنید:", kb_budje())
             else:
                 send_msg(cid, "📏 متراژ مورد نظر را انتخاب کنید:", kb_meter())
+            return {"ok": True}
 
         elif txt in ["۲۰ تا ۳۰ میلیارد", "۳۰ تا ۴۰ میلیارد", "۴۰ تا ۵۰ میلیارد", "۵۰ میلیارد به بالا"]:
             b_map = {
@@ -298,6 +304,7 @@ async def webhook(req: Request):
 
             set_session(user_id, budje_min=bmin, budje_max=bmax)
             send_msg(cid, "📏 متراژ مورد نظر را انتخاب کنید:", kb_meter())
+            return {"ok": True}
 
         elif txt in ["کمتر از 100 متر", "100 تا 150 متر", "150 تا 200 متر", "بیشتر از 200 متر"]:
             m_map = {
@@ -319,7 +326,7 @@ async def webhook(req: Request):
             )
 
             if not results:
-                send_msg(cid, "❌ متاسفانه موردی پیدا نشد. لطفاً فیلترها را تغییر دهید.", kb_main())
+                send_msg(cid, "❌ متاسفانه موردی پیدا نشد.", kb_main())
             else:
                 for r in results:
                     cap = f"🏠 **پیشنهاد ویژه**\n\n{r['text'][:200]}..."
@@ -328,7 +335,8 @@ async def webhook(req: Request):
                     else:
                         send_msg(cid, cap, inline_action(r["id"]))
 
-                send_msg(cid, "📄 برای دیدن موارد بیشتر، دکمه زیر را بزنید:", kb_next())
+                send_msg(cid, "📄 صفحه بعد:", kb_next())
+            return {"ok": True}
 
         elif txt == "صفحه بعد":
             s = get_session(user_id)
@@ -352,10 +360,12 @@ async def webhook(req: Request):
                     else:
                         send_msg(cid, cap, inline_action(r["id"]))
 
-                send_msg(cid, "📄 صفحه بعد را بزنید:", kb_next())
+                send_msg(cid, "📄 صفحه بعد:", kb_next())
+            return {"ok": True}
 
         elif "جستجوی سریع" in txt:
-            send_msg(cid, "🔍 نام محله یا متراژ را بفرستید (مثلاً: جنت آباد)")
+            send_msg(cid, "🔍 نام محله یا متراژ را بفرستید.")
+            return {"ok": True}
 
         else:
             conn = get_db()
@@ -365,7 +375,7 @@ async def webhook(req: Request):
             rows = cur.fetchall()
 
             if not rows:
-                send_msg(cid, "موردی یافت نشد. می‌توانید در کانال اصلی ما عضو شوید.", kb_main())
+                send_msg(cid, "موردی یافت نشد.", kb_main())
             else:
                 for r in rows:
                     cap = f"🏠 **فایل پیشنهادی**\n\n{r['text'][:150]}..."
@@ -375,6 +385,7 @@ async def webhook(req: Request):
                         send_msg(cid, cap, inline_action(r["id"]))
 
             conn.close()
+            return {"ok": True}
 
     # Callback
     if "callback_query" in data:
@@ -394,6 +405,6 @@ async def webhook(req: Request):
             conn.commit()
             conn.close()
 
-            send_msg(cid, "✅ به لیست علاقه‌مندی‌های شما اضافه شد.")
+            send_msg(cid, "✅ به علاقه‌مندی‌ها اضافه شد.")
 
     return {"ok": True}
