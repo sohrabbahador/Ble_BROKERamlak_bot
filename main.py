@@ -78,7 +78,7 @@ def send_pic(cid, pid, cap, kb=None):
 
 def kb_main(): return {"keyboard": [[{"text": "🏠 خرید"}, {"text": "🔑 رهن و اجاره"}], [{"text": "🔍 جستجوی سریع"}, {"text": "⭐ علاقه‌مندی‌ها"}]], "resize_keyboard": True}
 
-هوش مصنوعی: def kb_khab(): return {"keyboard": [[{"text": "۱ خواب"}, {"text": "۲ خواب"}], [{"text": "۳ خواب"}, {"text": "۴ خواب و بیشتر"}]], "resize_keyboard": True}
+def kb_khab(): return {"keyboard": [[{"text": "۱ خواب"}, {"text": "۲ خواب"}], [{"text": "۳ خواب"}, {"text": "۴ خواب و بیشتر"}]], "resize_keyboard": True}
 def kb_budje(): return {"keyboard": [[{"text": "۲۰ تا ۳۰ میلیارد"}, {"text": "۳۰ تا ۴۰ میلیارد"}], [{"text": "۴۰ تا ۵۰ میلیارد"}, {"text": "۵۰ میلیارد به بالا"}]], "resize_keyboard": True}
 def kb_meter(): return {"keyboard": [[{"text": "کمتر از ۱۰۰ متر"}, {"text": "۱۰۰ تا ۱۵۰ متر"}], [{"text": "۱۵۰ تا ۲۰۰ متر"}, {"text": "بیشتر از ۲۰۰ متر"}]], "resize_keyboard": True}
 def kb_next(): return {"keyboard": [[{"text": "صفحه بعد"}, {"text": "بازگشت به منو اصلی"}]], "resize_keyboard": True}
