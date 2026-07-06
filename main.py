@@ -1,7 +1,7 @@
 from fastapi import FastAPI, Request
 import requests, sqlite3, re
 
-TOKEN = "296563931:Noek97TDpcSv15596h1wEG1cVjtdCGJyNg8"
+TOKEN = "1163386061:P7CDH8D1hGtiZ1OB1-5jXuOClUgRK1y3TeU"
 BASE_URL = f"https://tapi.bale.ai/bot{TOKEN}"
 MAIN_CHANNEL_URL = "https://ble.ir/BROKER_amlak"
 
