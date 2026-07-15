@@ -91,6 +91,7 @@ def extract_info(text):
     text_en = fa_to_en(text)
     kind = "رهن_اجاره" if any(w in text for w in ["رهن", "اجاره", "رهن_اجاره"]) else "فروش"
 
+    # ۱. استخراج تعداد اتاق خواب
     khab = None
     kh_match = re.search(r"(\d+)\s*(?:اتاق\s*)?خواب", text_en)
     if kh_match:
@@ -100,38 +101,47 @@ def extract_info(text):
     elif "تک خواب" in text or "یک خواب" in text:
         khab = "۱ خواب"
 
+    # ۲. استخراج قیمت و تبدیل رهن/اجاره (هر ۳۰ میلیون اجاره = ۱ میلیارد رهن)
     price = None
-    price_line = ""
-    for line in text_en.split("\n"):
-        if any(keyword in line for keyword in ["قیمت", "رهن", "ودیعه"]):
-            if "متری" not in line:
-                price_line = line
-                break
-
-    if price_line:
+    if kind == "رهن_اجاره":
+        rahn_value = 0
+        ejare_value = 0
+        
+        # جستجوی مبالغ رهن و ودیعه
+        b_rahn = re.search(r"(?:رهن|ودیعه).*?(\d+)\s*(?:میلیارد|میلیاردی)", text_en) or re.search(r"(\d+)\s*(?:میلیارد|میلیاردی)", text_en)
+        m_rahn = re.search(r"(?:رهن|ودیعه).*?(\d+)\s*(?:میلیون|میلیونی)", text_en) or re.search(r"(\d+)\s*(?:میلیون|میلیونی)", text_en)
+        
+        # جستجوی مبلغ اجاره
+        m_ejare = re.search(r"اجاره.*?(\d+)\s*(?:میلیون|میلیونی)", text_en)
+        
+        if b_rahn:
+            rahn_value += int(b_rahn.group(1)) * 10**9
+        if m_rahn and not m_ejare:
+            rahn_value += int(m_rahn.group(1)) * 10**6
+            
+        if m_ejare:
+            ejare_value = int(m_ejare.group(1)) * 10**6
+            
+        # محاسبات فرمول تبدیل: رهن کل = رهن واقعی + (اجاره / ۳۰ میلیون * ۱ میلیارد)
+        converted_ejare = (ejare_value / (30 * 10**6)) * 10**9
+        price = int(rahn_value + converted_ejare)
+    else:
+        # محاسبات قیمت برای بخش فروش
         billions = 0
         millions = 0
-        b_match = re.search(r"(\d+)\s*(?:میلیارد|میلیاردی)", price_line)
-        m_match = re.search(r"(\d+)\s*(?:میلیون|میلیونی)", price_line)
+        b_match = re.search(r"(\d+)\s*(?:میلیارد|میلیاردی)", text_en)
+        m_match = re.search(r"(\d+)\s*(?:میلیون|میلیونی)", text_en)
         if b_match:
             billions = int(b_match.group(1)) * 10**9
         if m_match:
             millions = int(m_match.group(1)) * 10**6
         price = billions + millions
 
-    if not price:
-        b_match = re.search(r"(\d+)\s*(?:میلیارد|میلیاردی)", text_en)
-        m_match = re.search(r"(\d+)\s*(?:میلیون|میلیونی)", text_en)
-        if b_match:
-            price = int(b_match.group(1)) * 10**9
-            if m_match:
-                price += int(m_match.group(1)) * 10**6
-        elif m_match:
-            price = int(m_match.group(1)) * 10**6
-
+    # ۳. استخراج متراژ
     meter_match = re.search(r"متراژ[:\s]*(\d+)", text_en) or re.search(r"(\d+)\s*متر", text_en)
     meter = int(meter_match.group(1)) if meter_match else None
 
+    # ۴. استخراج موقعیت جغرافیایی
     loc_match = re.search(r"موقعیت[:\s]*(.*)", text) or re.search(r"(جنت‌آباد|تهران|منطقه\s*\d+|ستاری)", text)
     location = loc_match.group(1).strip() if loc_match else "نامشخص"
 
@@ -162,8 +172,8 @@ async def check_alerts_and_notify(text, kind, khab, price, meter, photos):
 
         cap = f"🔔 **ملک جدید مطابق با فیلتر شما ثبت شد!**\n\n{text[:300]}..."
         
-        # استفاده از ایمپورت پویا برای جلوگیری از Circular Import
-        from keyboards.templates import inline_action
+        # تغییر مسیر ایمپورت برای ارجاع به فایل اصلی وب‌هووک
+        from main import inline_action
         
         conn = get_db()
         cur = conn.cursor()
