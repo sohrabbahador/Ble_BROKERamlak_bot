@@ -1,3 +1,4 @@
+# core.py
 import json
 import re
 import httpx
@@ -9,14 +10,13 @@ BASE_URL = f"https://tapi.bale.ai/bot{TOKEN}"
 MAIN_CHANNEL_URL = "https://ble.ir/BROKER_amlak"
 ADMIN_ID = 123456789  # شناسه عددی سهراب بهادر (مدیر)
 
-# اتصال به دیتابیس ابری MongoDB شما
+# اتصال به دیتابیس ابری MongoDB
 MONGO_URI = "mongodb+srv://sohrabbahador2_db_user:48whO2iH0lCDGzeK@cluster0.tbsddnd.mongodb.net/?appName=Cluster0"
 mongo_client = MongoClient(MONGO_URI)
 db = mongo_client["broker_database"]  # نام دیتابیس پیش‌فرض
 
 
 def get_db():
-    """این تابع جهت سازگاری با ساختار قبلی حفظ شده است و شیء دیتابیس مونگو را برمی‌گرداند"""
     return db
 
 
@@ -25,7 +25,7 @@ def init_db():
     db["sessions"].create_index("user_id", unique=True)
     db["users"].create_index("user_id", unique=True)
     
-    # شبیه‌سازی ساختار AUTOINCREMENT دیتابیس قبلی برای آیدی فایل‌ها و آلارم‌ها
+    # شبیه‌سازی ساختار AUTOINCREMENT دیتابیس قبلی برای آیدی فایل‌ها، آلارم‌ها و علاقه‌مندی‌ها
     if db["counters"].count_documents({"_id": "file_id"}) == 0:
         db["counters"].insert_one({"_id": "file_id", "sequence_value": 0})
     if db["counters"].count_documents({"_id": "alert_id"}) == 0:
@@ -167,13 +167,11 @@ async def save_file(text, photos_list=None):
 
 
 def set_session(user_id, **kwargs):
-    # مقدار دهی اولیه صفحه به ۱ در صورت عدم وجود سشن
     db["sessions"].update_one(
         {"user_id": user_id},
         {"$setOnInsert": {"user_id": user_id, "page": 1}},
         upsert=True
     )
-    # بروزرسانی سایر مقادیر فرستاده شده
     if kwargs:
         db["sessions"].update_one(
             {"user_id": user_id},
@@ -182,7 +180,6 @@ def set_session(user_id, **kwargs):
 
 
 def get_session(user_id):
-    # خروجی دیکشنری برای حفظ دسترسی کلیدی در بقیه کدهای ربات
     return db["sessions"].find_one({"user_id": user_id})
 
 
