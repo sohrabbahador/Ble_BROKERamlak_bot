@@ -1,218 +1,43 @@
+# main.py
 import json
-import re
 import sqlite3
-import requests
 from fastapi import FastAPI, Request
 
-# --- تنظیمات اولیه ---
-TOKEN = "1163386061:P7CDH8D1hGtiZ1OB1-5jXuOClUgRK1y3TeU"
-BASE_URL = f"https://tapi.bale.ai/bot{TOKEN}"
-MAIN_CHANNEL_URL = "https://ble.ir/BROKER_amlak"
-ADMIN_ID = 123456789  # شناسه عددی ادمین
+# ایمپورت کردن توابع هسته از فایل core.py
+from core import (
+    ADMIN_ID,
+    MAIN_CHANNEL_URL,
+    get_db,
+    get_session,
+    init_db,
+    register_user,
+    save_file,
+    search_files,
+    send_msg,
+    send_pic,
+    set_session,
+    send_media_group,
+)
 
 app = FastAPI()
 
+# دیکشنری برای پیگیری موقت حالت ادمین برای ارسال پیام همگانی
+ADMIN_STATES = {}
 
-@app.get("/")
-def home():
-    return {"ok": True}
+# ==========================================
+# بخش اول: قالب‌های کیبورد (Keyboards)
+# ==========================================
 
-
-# --- مدیریت دیتابیس ---
-def get_db():
-    conn = sqlite3.connect("broker_final.db", check_same_thread=False)
-    conn.row_factory = sqlite3.Row
-    return conn
-
-
-def init_db():
-    conn = get_db()
-    cur = conn.cursor()
-    # جدول فایل‌ها
-    cur.execute(
-        "CREATE TABLE IF NOT EXISTS files ("
-        "id INTEGER PRIMARY KEY AUTOINCREMENT, "
-        "text TEXT, "
-        "kind TEXT, "
-        "khab TEXT, "
-        "price INTEGER, "
-        "meter INTEGER, "
-        "location TEXT, "
-        "photos TEXT)"
-    )
-    # جدول نشست‌ها
-    cur.execute(
-        "CREATE TABLE IF NOT EXISTS sessions ("
-        "user_id INTEGER PRIMARY KEY, "
-        "kind TEXT, "
-        "khab TEXT, "
-        "budje_min INTEGER, "
-        "budje_max INTEGER, "
-        "meter_min INTEGER, "
-        "meter_max INTEGER, "
-        "page INTEGER)"
-    )
-    # جدول علاقه‌مندی‌ها
-    cur.execute(
-        "CREATE TABLE IF NOT EXISTS favorites ("
-        "id INTEGER PRIMARY KEY AUTOINCREMENT, "
-        "user_id INTEGER, "
-        "file_id INTEGER)"
-    )
-    conn.commit()
-    conn.close()
-
-
-init_db()
-
-
-# --- توابع کمکی ---
-def fa_to_en(text):
-    if not text:
-        return ""
-    return text.translate(str.maketrans("۰۱۲۳۴۵۶۷۸۹٠١٢٣٤٥٦٧٨٩", "01234567890123456789"))
-
-
-def extract_info(text):
-    text_en = fa_to_en(text)
-    kind = "رهن_اجاره" if any(w in text for w in ["رهن", "اجاره", "رهن_اجاره"]) else "فروش"
-
-    # استخراج تعداد خواب
-    khab = None
-    kh_match = re.search(r"(\d+)\s*(?:اتاق\s*)?خواب", text_en)
-    if kh_match:
-        num = kh_match.group(1)
-        num_fa = num.translate(str.maketrans("0123456789", "۰۱۲۳۴۵۶۷۸۹"))
-        khab = f"{num_fa} خواب"
-    elif "تک خواب" in text or "یک خواب" in text:
-        khab = "۱ خواب"
-
-    # استخراج قیمت
-    price = None
-    price_line = ""
-    for line in text_en.split("\n"):
-        if any(keyword in line for keyword in ["قیمت", "رهن", "ودیعه"]):
-            if "متری" not in line:
-                price_line = line
-                break
-
-    if price_line:
-        billions = 0
-        millions = 0
-        b_match = re.search(r"(\d+)\s*(?:میلیارد|میلیاردی)", price_line)
-        m_match = re.search(r"(\d+)\s*(?:میلیون|میلیونی)", price_line)
-        if b_match:
-            billions = int(b_match.group(1)) * 10**9
-        if m_match:
-            millions = int(m_match.group(1)) * 10**6
-        price = billions + millions
-
-    if not price:
-        b_match = re.search(r"(\d+)\s*(?:میلیارد|میلیاردی)", text_en)
-        m_match = re.search(r"(\d+)\s*(?:میلیون|میلیونی)", text_en)
-        if b_match:
-            price = int(b_match.group(1)) * 10**9
-            if m_match:
-                price += int(m_match.group(1)) * 10**6
-        elif m_match:
-            price = int(m_match.group(1)) * 10**6
-
-    # استخراج متراژ و موقعیت
-    meter_match = re.search(r"متراژ[:\s]*(\d+)", text_en) or re.search(r"(\d+)\s*متر", text_en)
-    meter = int(meter_match.group(1)) if meter_match else None
-    
-    loc_match = re.search(r"موقعیت[:\s]*(.*)", text) or re.search(r"(جنت‌آباد|تهران|منطقه\s*\d+|ستاری)", text)
-    location = loc_match.group(1).strip() if loc_match else "نامشخص"
-
-    return kind, khab, price, meter, location
-
-
-def save_file(text, photos_list=None):
-    k, kh, p, m, l = extract_info(text)
-    photos_json = json.dumps(photos_list if photos_list else [])
-    conn = get_db()
-    cur = conn.cursor()
-    cur.execute(
-        "INSERT INTO files (text, kind, khab, price, meter, location, photos) VALUES (?,?,?,?,?,?,?)",
-        (text, k, kh, p, m, l, photos_json),
-    )
-    conn.commit()
-    conn.close()
-
-
-def set_session(user_id, **kwargs):
-    conn = get_db()
-    cur = conn.cursor()
-    cur.execute("INSERT OR IGNORE INTO sessions (user_id, page) VALUES (?, 1)", (user_id,))
-    for key, value in kwargs.items():
-        cur.execute(f"UPDATE sessions SET {key}=? WHERE user_id=?", (value, user_id))
-    conn.commit()
-    conn.close()
-
-
-def get_session(user_id):
-    conn = get_db()
-    cur = conn.cursor()
-    cur.execute("SELECT * FROM sessions WHERE user_id=?", (user_id,))
-    res = cur.fetchone()
-    conn.close()
-    return res
-
-
-def search_files(kind, khab, bmin, bmax, mmin, mmax, page):
-    conn = get_db()
-    cur = conn.cursor()
-    q, params = "SELECT * FROM files WHERE kind=?", [kind]
-    if khab:
-        q += " AND khab=?"
-        params.append(khab)
-    if bmin is not None and bmax is not None:
-        q += " AND price BETWEEN ? AND ?"
-        params.extend([bmin, bmax])
-    if mmin is not None and mmax is not None:
-        q += " AND meter BETWEEN ? AND ?"
-        params.extend([mmin, mmax])
-        
-    limit = 5
-    q += " LIMIT ? OFFSET ?"
-    params.extend([limit, (page - 1) * limit])
-    cur.execute(q, params)
-    res = cur.fetchall()
-    conn.close()
-    return res
-
-
-# --- توابع ارسال پیام ---
-def send_msg(cid, text, kb=None):
-    payload = {
-        "chat_id": cid,
-        "text": f"{text}\n\n📢 *کانال اصلی:*\n{MAIN_CHANNEL_URL}",
-        "parse_mode": "Markdown",
-    }
-    if kb:
-        payload["reply_markup"] = kb
-    return requests.post(f"{BASE_URL}/sendMessage", json=payload)
-
-
-def send_pic(cid, pid, cap, kb=None):
-    payload = {
-        "chat_id": cid,
-        "photo": pid,
-        "caption": f"{cap}\n\n📢 *کانال اصلی:*\n{MAIN_CHANNEL_URL}",
-        "parse_mode": "Markdown",
-    }
-    if kb:
-        payload["reply_markup"] = kb
-    return requests.post(f"{BASE_URL}/sendPhoto", json=payload)
-
-
-# --- کیبوردها ---
-def kb_main():
+def kb_main(is_admin=False):
+    kb = [
+        [{"text": "🏠 خرید"}, {"text": "🔑 رهن و اجاره"}],
+        [{"text": "🔍 جستجوی سریع"}, {"text": "⭐ علاقه‌مندی‌ها"}],
+        [{"text": "🔔 تنظیم گوش‌به‌زنگ"}]
+    ]
+    if is_admin:
+        kb.append([{"text": "📊 آمار ربات"}, {"text": "📢 ارسال پیام همگانی"}])
     return {
-        "keyboard": [
-            [{"text": "🏠 خرید"}, {"text": "🔑 رهن و اجاره"}],
-            [{"text": "🔍 جستجوی سریع"}, {"text": "⭐ علاقه‌مندی‌ها"}],
-        ],
+        "keyboard": kb,
         "resize_keyboard": True,
     }
 
@@ -269,20 +94,68 @@ def kb_next():
 
 
 def inline_action(fid):
+    # لینک مستقیم اشتراک گذاری با بله
+    share_url = f"https://ble.ir/share/url?url=https://t.me/BrokerBot?start=file_{fid}"
     return {
         "inline_keyboard": [
             [{"text": "🚀 مشاهده در کانال", "url": MAIN_CHANNEL_URL}],
-            [{"text": "⭐ افزودن به علاقه‌مندی", "callback_data": f"fav:{fid}"}],
+            [
+                {"text": "⭐ افزودن به علاقه‌مندی", "callback_data": f"fav:{fid}"},
+                {"text": "🔗 اشتراک‌گذاری", "url": share_url}
+            ],
         ]
     }
 
+# ==========================================
+# بخش دوم: هندلرهای خرید و رهن (Handlers)
+# ==========================================
 
-# --- وب‌هوک اصلی ---
+async def handle_buy_start(cid, user_id):
+    set_session(user_id, kind="فروش", page=1)
+    await send_msg(cid, "تعداد اتاق خواب مورد نظرتان را انتخاب کنید:", kb_khab())
+
+
+def get_buy_budget_ranges():
+    return {
+        "۲۰ تا ۳۰ میلیارد": (20 * 10**9, 30 * 10**9),
+        "۳۰ تا ۴۰ میلیارد": (30 * 10**9, 40 * 10**9),
+        "۴۰ تا ۵۰ میلیارد": (40 * 10**9, 50 * 10**9),
+        "۵۰ میلیارد به بالا": (50 * 10**9, 999 * 10**9),
+    }
+
+
+async def handle_rent_start(cid, user_id):
+    set_session(user_id, kind="رهن_اجاره", page=1)
+    await send_msg(cid, "تعداد اتاق خواب مورد نظرتان را انتخاب کنید:", kb_khab())
+
+
+def get_rent_budget_ranges():
+    return {
+        "کمتر از ۲ میلیارد": (0, 2 * 10**9),
+        "۲ تا ۴ میلیارد": (2 * 10**9, 4 * 10**9),
+        "۴ تا ۶ میلیارد": (4 * 10**9, 6 * 10**9),
+        "۶ میلیارد به بالا": (6 * 10**9, 999 * 10**9),
+    }
+
+# ==========================================
+# بخش سوم: وب‌هووک و مسیریابی ربات (FastAPI Webhook)
+# ==========================================
+
+@app.on_event("startup")
+def startup_event():
+    init_db()
+
+
+@app.get("/")
+def home():
+    return {"ok": True}
+
+
 @app.post("/")
 async def webhook(req: Request):
     data = await req.json()
 
-    # مدیریت عملیات callback_query (علاقه‌مندی‌ها)
+    # مدیریت عملیات علاقه‌مندی‌ها
     if "callback_query" in data:
         cb = data["callback_query"]
         cid = cb["message"]["chat"]["id"]
@@ -294,9 +167,9 @@ async def webhook(req: Request):
             if not cur.fetchone():
                 cur.execute("INSERT INTO favorites (user_id, file_id) VALUES (?,?)", (cid, file_id))
                 conn.commit()
-                send_msg(cid, "✅ این فایل به لیست علاقه‌مندی‌های شما اضافه شد.")
+                await send_msg(cid, "✅ این فایل به لیست علاقه‌مندی‌های شما اضافه شد.")
             else:
-                send_msg(cid, "⚠️ این فایل قبلاً در لیست علاقه‌مندی‌های شما ثبت شده است.")
+                await send_msg(cid, "⚠️ این فایل قبلاً در لیست علاقه‌مندی‌های شما ثبت شده است.")
             conn.close()
         return {"ok": True}
 
@@ -307,23 +180,52 @@ async def webhook(req: Request):
     chat = msg.get("chat", {})
     txt = msg.get("text", "") or msg.get("caption", "")
     cid, ctype = chat.get("id"), chat.get("type")
+    user_info = msg.get("from", {})
+    first_name = user_info.get("first_name", "کاربر گرامی")
 
-    # مانیتورینگ کانال (ذخیره عکس‌های متعدد)
+    # ثبت کاربر در دیتابیس برای آمار و همگانی
+    if ctype == "private":
+        register_user(cid, first_name)
+
+    # مانیتورینگ کانال (ذخیره فایل‌ها به همراه کل آلبوم عکس)
     if ctype == "channel":
         photos = []
-        if "photo" in msg:  # تک عکس
+        if "photo" in msg:
             photos.append(msg["photo"][-1]["file_id"])
-        if "media_group_id" in msg:  # آلبوم
+        if "media_group_id" in msg:
             photos.append(msg["photo"][-1]["file_id"] if "photo" in msg else None)
 
         if "موجود" in txt:
-            save_file(txt, photos)
+            await save_file(txt, [p for p in photos if p])
         return {"ok": True}
 
-    # چت خصوصی کاربر با ربات
+    # چت خصوصی کاربر
     if ctype == "private":
         user_id = cid
+        is_admin = (user_id == ADMIN_ID)
         s = get_session(user_id)
+
+        # مدیریت حالت پیام همگانی ادمین
+        if is_admin and ADMIN_STATES.get(user_id) == "waiting_broadcast":
+            if txt == "بازگشت به منو اصلی":
+                ADMIN_STATES[user_id] = None
+            else:
+                ADMIN_STATES[user_id] = None
+                conn = get_db()
+                cur = conn.cursor()
+                cur.execute("SELECT user_id FROM users")
+                all_users = cur.fetchall()
+                conn.close()
+                
+                success_count = 0
+                for u in all_users:
+                    try:
+                        await send_msg(u["user_id"], f"📢 **پیام مدیریت:**\n\n{txt}")
+                        success_count += 1
+                    except:
+                        pass
+                await send_msg(cid, f"✅ پیام همگانی با موفقیت به {success_count} کاربر ارسال شد.", kb_main(is_admin))
+                return {"ok": True}
 
         if txt == "/start" or txt == "بازگشت به منو اصلی":
             set_session(
@@ -336,19 +238,16 @@ async def webhook(req: Request):
                 meter_min=None,
                 meter_max=None,
             )
-            send_msg(
-                cid,
-                "سلام سهراب بهادر عزیز، به ربات هوشمند بروکر خوش آمدید. 🏠\n\nنوع عملیات مورد نظرتان را انتخاب کنید:",
-                kb_main(),
-            )
+            welcome_text = f"سلام {first_name} عزیز، به ربات هوشمند بروکر خوش آمدید. 🏠\n\nنوع عملیات مورد نظرتان را انتخاب کنید:"
+            if is_admin:
+                welcome_text = f"سلام سهراب عزیز، خوش آمدید. 👑\nمنوی مدیریت برای شما فعال است:"
+            await send_msg(cid, welcome_text, kb_main(is_admin))
 
         elif txt == "🏠 خرید":
-            set_session(user_id, kind="فروش", page=1)
-            send_msg(cid, "تعداد اتاق خواب مورد نظرتان را انتخاب کنید:", kb_khab())
+            await handle_buy_start(cid, user_id)
 
         elif txt == "🔑 رهن و اجاره":
-            set_session(user_id, kind="رهن_اجاره", page=1)
-            send_msg(cid, "تعداد اتاق خواب مورد نظرتان را انتخاب کنید:", kb_khab())
+            await handle_rent_start(cid, user_id)
 
         elif "خواب" in txt:
             clean_khab = txt.replace(" ", "")
@@ -359,24 +258,18 @@ async def webhook(req: Request):
             set_session(user_id, khab=final_khab)
             s = get_session(user_id)
             if s and s["kind"] == "فروش":
-                send_msg(cid, "بازه بودجه خرید را انتخاب کنید:", kb_budje_forosh())
+                await send_msg(cid, "بازه بودجه خرید را انتخاب کنید:", kb_budje_forosh())
             else:
-                send_msg(cid, "بازه رهن مورد نظرتان را انتخاب کنید:", kb_budje_rahn())
+                await send_msg(cid, "بازه رهن مورد نظرتان را انتخاب کنید:", kb_budje_rahn())
 
         elif any(w in txt for w in ["میلیارد", "میلیونی"]):
-            b_map = {
-                "۲۰ تا ۳۰ میلیارد": (20 * 10**9, 30 * 10**9),
-                "۳۰ تا ۴۰ میلیارد": (30 * 10**9, 40 * 10**9),
-                "۴۰ تا ۵۰ میلیارد": (40 * 10**9, 50 * 10**9),
-                "۵۰ میلیارد به بالا": (50 * 10**9, 999 * 10**9),
-                "کمتر از ۲ میلیارد": (0, 2 * 10**9),
-                "۲ تا ۴ میلیارد": (2 * 10**9, 4 * 10**9),
-                "۴ تا ۶ میلیارد": (4 * 10**9, 6 * 10**9),
-                "۶ میلیارد به بالا": (6 * 10**9, 999 * 10**9),
-            }
+            b_map = {}
+            b_map.update(get_buy_budget_ranges())
+            b_map.update(get_rent_budget_ranges())
+
             v = b_map.get(txt, (0, 999 * 10**9))
             set_session(user_id, budje_min=v[0], budje_max=v[1])
-            send_msg(cid, "حدود متراژ ملک را انتخاب کنید:", kb_meter())
+            await send_msg(cid, "حدود متراژ ملک را انتخاب کنید:", kb_meter())
 
         elif "متر" in txt:
             m_map = {
@@ -400,22 +293,22 @@ async def webhook(req: Request):
                     s["page"],
                 )
                 if not res:
-                    send_msg(
+                    await send_msg(
                         cid,
                         "❌ متاسفانه ملکی با این مشخصات یافت نشد. فیلترها را تغییر دهید یا مجدداً تلاش کنید.",
-                        kb_main(),
+                        kb_main(is_admin),
                     )
                 else:
                     for r in res:
                         cap = f"🏠 **پیشنهاد ویژه بروکر**\n\n{r['text'][:300]}..."
                         photos = json.loads(r["photos"]) if r["photos"] else []
                         if photos:
-                            send_pic(cid, photos[0], cap, inline_action(r["id"]))
+                            await send_pic(cid, photos[0], cap, inline_action(r["id"]))
                         else:
-                            send_msg(cid, cap, inline_action(r["id"]))
-                    send_msg(cid, "📄 برای مشاهده گزینه‌های بیشتر:", kb_next())
+                            await send_msg(cid, cap, inline_action(r["id"]))
+                    await send_msg(cid, "📄 برای مشاهده گزینه‌های بیشتر:", kb_next())
             else:
-                send_msg(cid, "خطایی رخ داد. لطفاً مجدداً جستجو را آغاز کنید.", kb_main())
+                await send_msg(cid, "خطایی رخ داد. لطفاً مجدداً جستجو را آغاز کنید.", kb_main(is_admin))
 
         elif txt == "صفحه بعد":
             s = get_session(user_id)
@@ -433,18 +326,18 @@ async def webhook(req: Request):
                     s["page"],
                 )
                 if not res:
-                    send_msg(cid, "🏁 به انتهای لیست فایل‌های موجود رسیدید.", kb_main())
+                    await send_msg(cid, "🏁 به انتهای لیست فایل‌های موجود رسیدید.", kb_main(is_admin))
                 else:
                     for r in res:
                         cap = f"🏠 **پیشنهاد ویژه بروکر**\n\n{r['text'][:300]}..."
                         photos = json.loads(r["photos"]) if r["photos"] else []
                         if photos:
-                            send_pic(cid, photos[0], cap, inline_action(r["id"]))
+                            await send_pic(cid, photos[0], cap, inline_action(r["id"]))
                         else:
-                            send_msg(cid, cap, inline_action(r["id"]))
-                    send_msg(cid, "📄 برای مشاهده گزینه‌های بیشتر:", kb_next())
+                            await send_msg(cid, cap, inline_action(r["id"]))
+                    await send_msg(cid, "📄 برای مشاهده گزینه‌های بیشتر:", kb_next())
             else:
-                send_msg(cid, "نشست کاربری شما یافت نشد. بازگشت به منو اصلی...", kb_main())
+                await send_msg(cid, "نشست کاربری شما یافت نشد. بازگشت به منو اصلی...", kb_main(is_admin))
 
         elif txt == "⭐ علاقه‌مندی‌ها":
             conn = get_db()
@@ -454,11 +347,11 @@ async def webhook(req: Request):
             conn.close()
 
             if not favs:
-                send_msg(cid, "لیست علاقه‌مندی‌های شما در حال حاضر خالی است.")
+                await send_msg(cid, "لیست علاقه‌مندی‌های شما در حال حاضر خالی است.")
             else:
                 conn = get_db()
                 cur = conn.cursor()
-                send_msg(cid, "⭐ **لیست فایل‌های مورد علاقه شما:**")
+                await send_msg(cid, "⭐ **لیست فایل‌های مورد علاقه شما:**")
                 for f in favs:
                     cur.execute("SELECT * FROM files WHERE id=?", (f["file_id"],))
                     r = cur.fetchone()
@@ -466,37 +359,65 @@ async def webhook(req: Request):
                         cap = f"⭐ **ملک نشان شده**\n\n{r['text'][:300]}..."
                         photos = json.loads(r["photos"]) if r["photos"] else []
                         if photos:
-                            send_pic(cid, photos[0], cap, inline_action(r["id"]))
+                            await send_pic(cid, photos[0], cap, inline_action(r["id"]))
                         else:
-                            send_msg(cid, r["text"], inline_action(r["id"]))
+                            await send_msg(cid, r["text"], inline_action(r["id"]))
                 conn.close()
 
         elif "🔍 جستجوی سریع" in txt:
-            send_msg(
+            await send_msg(
                 cid,
                 "کافیست نام محله (مثلاً جنت‌آباد) یا ویژگی مورد نظرتان را بنویسید و بفرستید تا سریعاً جستجو کنم:",
             )
 
+        elif txt == "🔔 تنظیم گوش‌به‌زنگ":
+            s = get_session(user_id)
+            if s and s["kind"]:
+                conn = get_db()
+                cur = conn.cursor()
+                cur.execute(
+                    "INSERT INTO alerts (user_id, kind, khab, budje_min, budje_max, meter_min, meter_max) VALUES (?,?,?,?,?,?,?)",
+                    (user_id, s["kind"], s["khab"], s["budje_min"], s["budje_max"], s["meter_min"], s["meter_max"])
+                )
+                conn.commit()
+                conn.close()
+                await send_msg(cid, "✅ فیلترهای جستجوی شما در بخش گوش‌به‌زنگ ثبت شد! به محض اضافه شدن فایل جدید همسو با سلیقه‌تان، بلافاصله به شما اطلاع می‌دهیم.")
+            else:
+                await send_msg(cid, "⚠️ ابتدا باید یکبار از طریق دکمه‌های منو جستجوی ملک را کامل کنید تا فیلترهای دلخواه شما شناسایی و ثبت شوند.")
+
+        elif is_admin and txt == "📊 آمار ربات":
+            conn = get_db()
+            cur = conn.cursor()
+            cur.execute("SELECT COUNT(*) FROM users")
+            u_count = cur.fetchone()[0]
+            cur.execute("SELECT COUNT(*) FROM files")
+            f_count = cur.fetchone()[0]
+            conn.close()
+            await send_msg(cid, f"📊 **آمار سیستم هوشمند بروکر:**\n\n👤 کل کاربران عضو: {u_count} نفر\n🏠 کل املاک ثبت‌شده: {f_count} ملک")
+
+        elif is_admin and txt == "📢 ارسال پیام همگانی":
+            ADMIN_STATES[user_id] = "waiting_broadcast"
+            await send_msg(cid, "✍️ لطفاً متنی که می‌خواهید برای تمام کاربران ارسال شود را بنویسید و بفرستید:\n(برای لغو، دکمه بازگشت به منو اصلی را بزنید.)", {"keyboard": [[{"text": "بازگشت به منو اصلی"}]], "resize_keyboard": True})
+
         else:
-            # جستجوی متنی آزاد در دیتابیس
             conn = get_db()
             cur = conn.cursor()
             cur.execute("SELECT * FROM files WHERE text LIKE ? LIMIT 5", (f"%{txt}%",))
             res = cur.fetchall()
             conn.close()
             if not res:
-                send_msg(
+                await send_msg(
                     cid,
                     "❌ موردی با این مشخصات یافت نشد. جستجوی متنی دیگری انجام دهید یا از دکمه‌های منو استفاده کنید.",
-                    kb_main(),
+                    kb_main(is_admin),
                 )
             else:
                 for r in res:
                     cap = f"🔍 **نتیجه جستجوی سریع**\n\n{r['text'][:300]}..."
                     photos = json.loads(r["photos"]) if r["photos"] else []
                     if photos:
-                        send_pic(cid, photos[0], cap, inline_action(r["id"]))
+                        await send_pic(cid, photos[0], cap, inline_action(r["id"]))
                     else:
-                        send_msg(cid, cap, inline_action(r["id"]))
+                        await send_msg(cid, cap, inline_action(r["id"]))
 
     return {"ok": True}
