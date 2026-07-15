@@ -1,6 +1,5 @@
 # main.py
 import json
-import sqlite3
 from fastapi import FastAPI, Request
 
 # ایمپورت کردن توابع هسته از فایل core.py
@@ -160,17 +159,16 @@ async def webhook(req: Request):
         cb = data["callback_query"]
         cid = cb["message"]["chat"]["id"]
         if (d_val := cb.get("data", "")).startswith("fav:"):
-            file_id = d_val.split(":")[1]
-            conn = get_db()
-            cur = conn.cursor()
-            cur.execute("SELECT * FROM favorites WHERE user_id=? AND file_id=?", (cid, file_id))
-            if not cur.fetchone():
-                cur.execute("INSERT INTO favorites (user_id, file_id) VALUES (?,?)", (cid, file_id))
-                conn.commit()
+            file_id = int(d_val.split(":")[1])
+            db = get_db()
+            
+            # بررسی وضعیت تکراری بودن در لیست علاقه‌مندی‌ها با مونگو
+            exists = db["favorites"].find_one({"user_id": cid, "file_id": file_id})
+            if not exists:
+                db["favorites"].insert_one({"user_id": cid, "file_id": file_id})
                 await send_msg(cid, "✅ این فایل به لیست علاقه‌مندی‌های شما اضافه شد.")
             else:
                 await send_msg(cid, "⚠️ این فایل قبلاً در لیست علاقه‌مندی‌های شما ثبت شده است.")
-            conn.close()
         return {"ok": True}
 
     msg = data.get("message") or data.get("body")
@@ -211,11 +209,8 @@ async def webhook(req: Request):
                 ADMIN_STATES[user_id] = None
             else:
                 ADMIN_STATES[user_id] = None
-                conn = get_db()
-                cur = conn.cursor()
-                cur.execute("SELECT user_id FROM users")
-                all_users = cur.fetchall()
-                conn.close()
+                db = get_db()
+                all_users = list(db["users"].find({}, {"user_id": 1}))
                 
                 success_count = 0
                 for u in all_users:
@@ -257,7 +252,7 @@ async def webhook(req: Request):
                 final_khab = txt.strip()
             set_session(user_id, khab=final_khab)
             s = get_session(user_id)
-            if s and s["kind"] == "فروش":
+            if s and s.get("kind") == "فروش":
                 await send_msg(cid, "بازه بودجه خرید را انتخاب کنید:", kb_budje_forosh())
             else:
                 await send_msg(cid, "بازه رهن مورد نظرتان را انتخاب کنید:", kb_budje_rahn())
@@ -284,13 +279,13 @@ async def webhook(req: Request):
             s = get_session(user_id)
             if s:
                 res = search_files(
-                    s["kind"],
-                    s["khab"],
-                    s["budje_min"],
-                    s["budje_max"],
-                    s["meter_min"],
-                    s["meter_max"],
-                    s["page"],
+                    s.get("kind"),
+                    s.get("khab"),
+                    s.get("budje_min"),
+                    s.get("budje_max"),
+                    s.get("meter_min"),
+                    s.get("meter_max"),
+                    s.get("page", 1),
                 )
                 if not res:
                     await send_msg(
@@ -301,7 +296,7 @@ async def webhook(req: Request):
                 else:
                     for r in res:
                         cap = f"🏠 **پیشنهاد ویژه بروکر**\n\n{r['text'][:300]}..."
-                        photos = json.loads(r["photos"]) if r["photos"] else []
+                        photos = json.loads(r["photos"]) if r.get("photos") else []
                         if photos:
                             await send_pic(cid, photos[0], cap, inline_action(r["id"]))
                         else:
@@ -313,24 +308,24 @@ async def webhook(req: Request):
         elif txt == "صفحه بعد":
             s = get_session(user_id)
             if s:
-                next_page = (s["page"] or 1) + 1
+                next_page = (s.get("page") or 1) + 1
                 set_session(user_id, page=next_page)
                 s = get_session(user_id)
                 res = search_files(
-                    s["kind"],
-                    s["khab"],
-                    s["budje_min"],
-                    s["budje_max"],
-                    s["meter_min"],
-                    s["meter_max"],
-                    s["page"],
+                    s.get("kind"),
+                    s.get("khab"),
+                    s.get("budje_min"),
+                    s.get("budje_max"),
+                    s.get("meter_min"),
+                    s.get("meter_max"),
+                    s.get("page", 1),
                 )
                 if not res:
                     await send_msg(cid, "🏁 به انتهای لیست فایل‌های موجود رسیدید.", kb_main(is_admin))
                 else:
                     for r in res:
                         cap = f"🏠 **پیشنهاد ویژه بروکر**\n\n{r['text'][:300]}..."
-                        photos = json.loads(r["photos"]) if r["photos"] else []
+                        photos = json.loads(r["photos"]) if r.get("photos") else []
                         if photos:
                             await send_pic(cid, photos[0], cap, inline_action(r["id"]))
                         else:
@@ -340,29 +335,22 @@ async def webhook(req: Request):
                 await send_msg(cid, "نشست کاربری شما یافت نشد. بازگشت به منو اصلی...", kb_main(is_admin))
 
         elif txt == "⭐ علاقه‌مندی‌ها":
-            conn = get_db()
-            cur = conn.cursor()
-            cur.execute("SELECT file_id FROM favorites WHERE user_id=?", (user_id,))
-            favs = cur.fetchall()
-            conn.close()
+            db = get_db()
+            favs = list(db["favorites"].find({"user_id": user_id}))
 
             if not favs:
                 await send_msg(cid, "لیست علاقه‌مندی‌های شما در حال حاضر خالی است.")
             else:
-                conn = get_db()
-                cur = conn.cursor()
                 await send_msg(cid, "⭐ **لیست فایل‌های مورد علاقه شما:**")
                 for f in favs:
-                    cur.execute("SELECT * FROM files WHERE id=?", (f["file_id"],))
-                    r = cur.fetchone()
+                    r = db["files"].find_one({"id": f["file_id"]})
                     if r:
                         cap = f"⭐ **ملک نشان شده**\n\n{r['text'][:300]}..."
-                        photos = json.loads(r["photos"]) if r["photos"] else []
+                        photos = json.loads(r["photos"]) if r.get("photos") else []
                         if photos:
                             await send_pic(cid, photos[0], cap, inline_action(r["id"]))
                         else:
                             await send_msg(cid, r["text"], inline_action(r["id"]))
-                conn.close()
 
         elif "🔍 جستجوی سریع" in txt:
             await send_msg(
@@ -372,27 +360,31 @@ async def webhook(req: Request):
 
         elif txt == "🔔 تنظیم گوش‌به‌زنگ":
             s = get_session(user_id)
-            if s and s["kind"]:
-                conn = get_db()
-                cur = conn.cursor()
-                cur.execute(
-                    "INSERT INTO alerts (user_id, kind, khab, budje_min, budje_max, meter_min, meter_max) VALUES (?,?,?,?,?,?,?)",
-                    (user_id, s["kind"], s["khab"], s["budje_min"], s["budje_max"], s["meter_min"], s["meter_max"])
-                )
-                conn.commit()
-                conn.close()
+            if s and s.get("kind"):
+                db = get_db()
+                
+                # دریافت آیدی خودکار افزایشی با ساختار core.py برای آلارم
+                from core import get_next_sequence_value
+                alert_id = get_next_sequence_value("alert_id")
+                
+                db["alerts"].insert_one({
+                    "id": alert_id,
+                    "user_id": user_id,
+                    "kind": s.get("kind"),
+                    "khab": s.get("khab"),
+                    "budje_min": s.get("budje_min"),
+                    "budje_max": s.get("budje_max"),
+                    "meter_min": s.get("meter_min"),
+                    "meter_max": s.get("meter_max")
+                })
                 await send_msg(cid, "✅ فیلترهای جستجوی شما در بخش گوش‌به‌زنگ ثبت شد! به محض اضافه شدن فایل جدید همسو با سلیقه‌تان، بلافاصله به شما اطلاع می‌دهیم.")
             else:
                 await send_msg(cid, "⚠️ ابتدا باید یکبار از طریق دکمه‌های منو جستجوی ملک را کامل کنید تا فیلترهای دلخواه شما شناسایی و ثبت شوند.")
 
         elif is_admin and txt == "📊 آمار ربات":
-            conn = get_db()
-            cur = conn.cursor()
-            cur.execute("SELECT COUNT(*) FROM users")
-            u_count = cur.fetchone()[0]
-            cur.execute("SELECT COUNT(*) FROM files")
-            f_count = cur.fetchone()[0]
-            conn.close()
+            db = get_db()
+            u_count = db["users"].count_documents({})
+            f_count = db["files"].count_documents({})
             await send_msg(cid, f"📊 **آمار سیستم هوشمند بروکر:**\n\n👤 کل کاربران عضو: {u_count} نفر\n🏠 کل املاک ثبت‌شده: {f_count} ملک")
 
         elif is_admin and txt == "📢 ارسال پیام همگانی":
@@ -400,11 +392,9 @@ async def webhook(req: Request):
             await send_msg(cid, "✍️ لطفاً متنی که می‌خواهید برای تمام کاربران ارسال شود را بنویسید و بفرستید:\n(برای لغو، دکمه بازگشت به منو اصلی را بزنید.)", {"keyboard": [[{"text": "بازگشت به منو اصلی"}]], "resize_keyboard": True})
 
         else:
-            conn = get_db()
-            cur = conn.cursor()
-            cur.execute("SELECT * FROM files WHERE text LIKE ? LIMIT 5", (f"%{txt}%",))
-            res = cur.fetchall()
-            conn.close()
+            db = get_db()
+            # شبیه‌سازی دقیق فیلتر متنی LIKE در دیتابیس MongoDB با استفاده از رگولار اکسپرشن
+            res = list(db["files"].find({"text": {"$regex": txt, "$options": "i"}}).limit(5))
             if not res:
                 await send_msg(
                     cid,
@@ -414,7 +404,7 @@ async def webhook(req: Request):
             else:
                 for r in res:
                     cap = f"🔍 **نتیجه جستجوی سریع**\n\n{r['text'][:300]}..."
-                    photos = json.loads(r["photos"]) if r["photos"] else []
+                    photos = json.loads(r["photos"]) if r.get("photos") else []
                     if photos:
                         await send_pic(cid, photos[0], cap, inline_action(r["id"]))
                     else:
