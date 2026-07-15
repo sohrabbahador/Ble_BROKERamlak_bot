@@ -1,8 +1,7 @@
-# core.py
 import json
 import re
-import sqlite3
 import httpx
+from pymongo import MongoClient
 
 # تنظیمات اصلی
 TOKEN = "1163386061:P7CDH8D1hGtiZ1OB1-5jXuOClUgRK1y3TeU"
@@ -10,75 +9,47 @@ BASE_URL = f"https://tapi.bale.ai/bot{TOKEN}"
 MAIN_CHANNEL_URL = "https://ble.ir/BROKER_amlak"
 ADMIN_ID = 123456789  # شناسه عددی سهراب بهادر (مدیر)
 
+# اتصال به دیتابیس ابری MongoDB شما
+MONGO_URI = "mongodb+srv://sohrabbahador2_db_user:48whO2iH0lCDGzeK@cluster0.tbsddnd.mongodb.net/?appName=Cluster0"
+mongo_client = MongoClient(MONGO_URI)
+db = mongo_client["broker_database"]  # نام دیتابیس پیش‌فرض
+
 
 def get_db():
-    conn = sqlite3.connect("broker_final.db", check_same_thread=False)
-    conn.row_factory = sqlite3.Row
-    return conn
+    """این تابع جهت سازگاری با ساختار قبلی حفظ شده است و شیء دیتابیس مونگو را برمی‌گرداند"""
+    return db
 
 
 def init_db():
-    conn = get_db()
-    cur = conn.cursor()
-    # جدول فایل‌ها
-    cur.execute(
-        "CREATE TABLE IF NOT EXISTS files ("
-        "id INTEGER PRIMARY KEY AUTOINCREMENT, "
-        "text TEXT, "
-        "kind TEXT, "
-        "khab TEXT, "
-        "price INTEGER, "
-        "meter INTEGER, "
-        "location TEXT, "
-        "photos TEXT)"
+    """ایجاد ایندکس‌های یکتا برای حفظ ساختار کلیدهای اصلی مشابه با دیتابیس قبلی"""
+    db["sessions"].create_index("user_id", unique=True)
+    db["users"].create_index("user_id", unique=True)
+    
+    # شبیه‌سازی ساختار AUTOINCREMENT دیتابیس قبلی برای آیدی فایل‌ها و آلارم‌ها
+    if db["counters"].count_documents({"_id": "file_id"}) == 0:
+        db["counters"].insert_one({"_id": "file_id", "sequence_value": 0})
+    if db["counters"].count_documents({"_id": "alert_id"}) == 0:
+        db["counters"].insert_one({"_id": "alert_id", "sequence_value": 0})
+    if db["counters"].count_documents({"_id": "fav_id"}) == 0:
+        db["counters"].insert_one({"_id": "fav_id", "sequence_value": 0})
+
+
+def get_next_sequence_value(sequence_name):
+    """ایجاد شناسه عددی افزایشی خودکار مشابه با SQLite AUTOINCREMENT"""
+    sequence_document = db["counters"].find_one_and_update(
+        {"_id": sequence_name},
+        {"$inc": {"sequence_value": 1}},
+        return_document=True
     )
-    # جدول نشست‌ها
-    cur.execute(
-        "CREATE TABLE IF NOT EXISTS sessions ("
-        "user_id INTEGER PRIMARY KEY, "
-        "kind TEXT, "
-        "khab TEXT, "
-        "budje_min INTEGER, "
-        "budje_max INTEGER, "
-        "meter_min INTEGER, "
-        "meter_max INTEGER, "
-        "page INTEGER)"
-    )
-    # جدول علاقه‌مندی‌ها
-    cur.execute(
-        "CREATE TABLE IF NOT EXISTS favorites ("
-        "id INTEGER PRIMARY KEY AUTOINCREMENT, "
-        "user_id INTEGER, "
-        "file_id INTEGER)"
-    )
-    # جدول کاربران برای آمار و پیام همگانی
-    cur.execute(
-        "CREATE TABLE IF NOT EXISTS users ("
-        "user_id INTEGER PRIMARY KEY, "
-        "first_name TEXT)"
-    )
-    # جدول گوش‌به‌زنگ (آلارم‌ها)
-    cur.execute(
-        "CREATE TABLE IF NOT EXISTS alerts ("
-        "id INTEGER PRIMARY KEY AUTOINCREMENT, "
-        "user_id INTEGER, "
-        "kind TEXT, "
-        "khab TEXT, "
-        "budje_min INTEGER, "
-        "budje_max INTEGER, "
-        "meter_min INTEGER, "
-        "meter_max INTEGER)"
-    )
-    conn.commit()
-    conn.close()
+    return sequence_document["sequence_value"]
 
 
 def register_user(user_id, first_name):
-    conn = get_db()
-    cur = conn.cursor()
-    cur.execute("INSERT OR REPLACE INTO users (user_id, first_name) VALUES (?, ?)", (user_id, first_name))
-    conn.commit()
-    conn.close()
+    db["users"].update_one(
+        {"user_id": user_id},
+        {"$set": {"user_id": user_id, "first_name": first_name}},
+        upsert=True
+    )
 
 
 def fa_to_en(text):
@@ -107,11 +78,9 @@ def extract_info(text):
         rahn_value = 0
         ejare_value = 0
         
-        # جستجوی مبالغ رهن و ودیعه
         b_rahn = re.search(r"(?:رهن|ودیعه).*?(\d+)\s*(?:میلیارد|میلیاردی)", text_en) or re.search(r"(\d+)\s*(?:میلیارد|میلیاردی)", text_en)
         m_rahn = re.search(r"(?:رهن|ودیعه).*?(\d+)\s*(?:میلیون|میلیونی)", text_en) or re.search(r"(\d+)\s*(?:میلیون|میلیونی)", text_en)
         
-        # جستجوی مبلغ اجاره
         m_ejare = re.search(r"اجاره.*?(\d+)\s*(?:میلیون|میلیونی)", text_en)
         
         if b_rahn:
@@ -122,11 +91,9 @@ def extract_info(text):
         if m_ejare:
             ejare_value = int(m_ejare.group(1)) * 10**6
             
-        # محاسبات فرمول تبدیل: رهن کل = رهن واقعی + (اجاره / ۳۰ میلیون * ۱ میلیارد)
         converted_ejare = (ejare_value / (30 * 10**6)) * 10**9
         price = int(rahn_value + converted_ejare)
     else:
-        # محاسبات قیمت برای بخش فروش
         billions = 0
         millions = 0
         b_match = re.search(r"(\d+)\s*(?:میلیارد|میلیاردی)", text_en)
@@ -150,36 +117,27 @@ def extract_info(text):
 
 async def check_alerts_and_notify(text, kind, khab, price, meter, photos):
     """بررسی آلارم‌های ثبت شده کاربران و ارسال نوتیفیکیشن در صورت تطابق ملک جدید"""
-    conn = get_db()
-    cur = conn.cursor()
-    cur.execute("SELECT * FROM alerts")
-    alerts = cur.fetchall()
-    conn.close()
+    alerts = list(db["alerts"].find({}))
 
     for alert in alerts:
-        if alert["kind"] and alert["kind"] != kind:
+        if alert.get("kind") and alert["kind"] != kind:
             continue
-        if alert["khab"] and alert["khab"] != khab:
+        if alert.get("khab") and alert["khab"] != khab:
             continue
-        if alert["budje_min"] is not None and (price is None or price < alert["budje_min"]):
+        if alert.get("budje_min") is not None and (price is None or price < alert["budje_min"]):
             continue
-        if alert["budje_max"] is not None and (price is None or price > alert["budje_max"]):
+        if alert.get("budje_max") is not None and (price is None or price > alert["budje_max"]):
             continue
-        if alert["meter_min"] is not None and (meter is None or meter < alert["meter_min"]):
+        if alert.get("meter_min") is not None and (meter is None or meter < alert["meter_min"]):
             continue
-        if alert["meter_max"] is not None and (meter is None or meter > alert["meter_max"]):
+        if alert.get("meter_max") is not None and (meter is None or meter > alert["meter_max"]):
             continue
 
         cap = f"🔔 **ملک جدید مطابق با فیلتر شما ثبت شد!**\n\n{text[:300]}..."
         
-        # تغییر مسیر ایمپورت برای ارجاع به فایل اصلی وب‌هووک
         from main import inline_action
         
-        conn = get_db()
-        cur = conn.cursor()
-        cur.execute("SELECT id FROM files ORDER BY id DESC LIMIT 1")
-        last_file = cur.fetchone()
-        conn.close()
+        last_file = db["files"].find_one(sort=[("id", -1)])
         fid = last_file["id"] if last_file else 1
 
         if photos:
@@ -191,57 +149,56 @@ async def check_alerts_and_notify(text, kind, khab, price, meter, photos):
 async def save_file(text, photos_list=None):
     k, kh, p, m, l = extract_info(text)
     photos_json = json.dumps(photos_list if photos_list else [])
-    conn = get_db()
-    cur = conn.cursor()
-    cur.execute(
-        "INSERT INTO files (text, kind, khab, price, meter, location, photos) VALUES (?,?,?,?,?,?,?)",
-        (text, k, kh, p, m, l, photos_json),
-    )
-    conn.commit()
-    conn.close()
+    
+    file_id = get_next_sequence_value("file_id")
+    
+    db["files"].insert_one({
+        "id": file_id,
+        "text": text,
+        "kind": k,
+        "khab": kh,
+        "price": p,
+        "meter": m,
+        "location": l,
+        "photos": photos_json
+    })
     
     await check_alerts_and_notify(text, k, kh, p, m, photos_list)
 
 
 def set_session(user_id, **kwargs):
-    conn = get_db()
-    cur = conn.cursor()
-    cur.execute("INSERT OR IGNORE INTO sessions (user_id, page) VALUES (?, 1)", (user_id,))
-    for key, value in kwargs.items():
-        cur.execute(f"UPDATE sessions SET {key}=? WHERE user_id=?", (value, user_id))
-    conn.commit()
-    conn.close()
+    # مقدار دهی اولیه صفحه به ۱ در صورت عدم وجود سشن
+    db["sessions"].update_one(
+        {"user_id": user_id},
+        {"$setOnInsert": {"user_id": user_id, "page": 1}},
+        upsert=True
+    )
+    # بروزرسانی سایر مقادیر فرستاده شده
+    if kwargs:
+        db["sessions"].update_one(
+            {"user_id": user_id},
+            {"$set": kwargs}
+        )
 
 
 def get_session(user_id):
-    conn = get_db()
-    cur = conn.cursor()
-    cur.execute("SELECT * FROM sessions WHERE user_id=?", (user_id,))
-    res = cur.fetchone()
-    conn.close()
-    return res
+    # خروجی دیکشنری برای حفظ دسترسی کلیدی در بقیه کدهای ربات
+    return db["sessions"].find_one({"user_id": user_id})
 
 
 def search_files(kind, khab, bmin, bmax, mmin, mmax, page):
-    conn = get_db()
-    cur = conn.cursor()
-    q, params = "SELECT * FROM files WHERE kind=?", [kind]
+    query = {"kind": kind}
     if khab:
-        q += " AND khab=?"
-        params.append(khab)
+        query["khab"] = khab
     if bmin is not None and bmax is not None:
-        q += " AND price BETWEEN ? AND ?"
-        params.extend([bmin, bmax])
+        query["price"] = {"$gte": bmin, "$lte": bmax}
     if mmin is not None and mmax is not None:
-        q += " AND meter BETWEEN ? AND ?"
-        params.extend([mmin, mmax])
+        query["meter"] = {"$gte": mmin, "$lte": mmax}
 
     limit = 5
-    q += " LIMIT ? OFFSET ?"
-    params.extend([limit, (page - 1) * limit])
-    cur.execute(q, params)
-    res = cur.fetchall()
-    conn.close()
+    skip = (page - 1) * limit
+    
+    res = list(db["files"].find(query).skip(skip).limit(limit))
     return res
 
 
