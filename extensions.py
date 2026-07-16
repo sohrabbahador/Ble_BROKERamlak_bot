@@ -1,16 +1,15 @@
+# extensions.py
 import logging
 from datetime import datetime
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes, CommandHandler, CallbackQueryHandler, MessageHandler, filters
+from config import ADMIN_ID  # دریافت مستقیم شناسه ادمین از فایل تنظیمات
 
 # پیکربندی لاگ برای عیب‌یابی
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# شناسه عددی تلگرام مدیر (جایگزین کنید)
-ADMIN_ID = 123456789 
-
-# دیتابیس فرضی در حافظه (برای هماهنگ کردن با دیتابیس خود، این بخش را به توابع دیتابیس اصلی متصل کنید)
+# دیتابیس فرضی در حافظه (می‌توانید در آینده این بخش را به توابع دیتابیس اصلی در core.py متصل کنید)
 db_mock = {
     "users": set(),          # شناسه کاربران عضو شده
     "stats": {
@@ -22,7 +21,6 @@ db_mock = {
 }
 
 # ----------------- بخش ۴: بهینه‌سازی سرعت (مکانیزم کش سبک) -----------------
-# ذخیره آمار در رم سرعت ربات را به شدت بالا می‌برد تا مدام به دیتابیس دیسک وصل نشود.
 def log_activity(activity_type: str, user_id: int):
     """ثبت فعالیت‌ها با سرعت بالا در حافظه موقت"""
     db_mock["users"].add(user_id)
@@ -45,9 +43,9 @@ async def admin_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     total_users = len(db_mock["users"])
     keyboard = [
-        [InlineKeyboardButton("📊 گزارش آمار امروز", callback_id="get_report")],
-        [InlineKeyboardButton("✉️ ارسال پیام انبوه", callback_id="start_broadcast")],
-        [InlineKeyboardButton("👥 لیست شناسه کاربران", callback_id="list_users")]
+        [InlineKeyboardButton("📊 گزارش آمار امروز", callback_data="get_report")],
+        [InlineKeyboardButton("✉️ ارسال پیام انبوه", callback_data="start_broadcast")],
+        [InlineKeyboardButton("👥 لیست شناسه کاربران", callback_data="list_users")]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     await update.message.reply_text(
@@ -108,7 +106,7 @@ async def receive_broadcast_text(update: Update, context: ContextTypes.DEFAULT_T
     context.user_data["waiting_for_broadcast"] = False
     broadcast_text = update.message.text
     
-    # اجرای ارسال در پس‌زمینه (Job Queue) برای عدم اختلال در سرعت ربات
+    # اجرای ارسال در پس‌زمینه (Job Queue)
     context.job_queue.run_once(send_broadcast_job, when=1, data={"text": broadcast_text})
     await update.message.reply_text("⏳ پیام در صف ارسال انبوه قرار گرفت. نتیجه پس از اتمام گزارش می‌شود.")
     return True
@@ -164,10 +162,10 @@ async def receive_text_feedback(update: Update, context: ContextTypes.DEFAULT_TY
     await update.message.reply_text("💖 نظر شما با موفقیت ثبت شد. از همراهی شما سپاسگزاریم!")
     return True
 
-# ----------------- بخش رهگیری بازدیدها (برای بخش‌های خرید و رهن و اجاره) -----------------
+# ----------------- بخش رهگیری بازدیدها -----------------
 
 async def track_section_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """یک نمونه تابع برای نحوه رهگیری کلیک‌ها (این را به هندلرهای دکمه‌های اصلی خود وصل کنید)"""
+    """رهگیری کلیک‌های بخش‌های مختلف"""
     query = update.callback_query
     user_id = update.effective_user.id
     
@@ -184,9 +182,7 @@ async def track_section_click(update: Update, context: ContextTypes.DEFAULT_TYPE
 # ----------------- بارگذاری هندلرها -----------------
 
 def register_extension_handlers(application):
-    """
-    این تابع را در فایل main.py فراخوانی کنید تا تمام قابلیت‌ها اضافه شوند.
-    """
+    """اتصال تمامی هندلرهای تلگرام به کلاس Application اصلی در main.py"""
     # ادمین
     application.add_handler(CommandHandler("admin", admin_menu))
     application.add_handler(CallbackQueryHandler(handle_admin_buttons, pattern="^(list_users|start_broadcast|get_report)$"))
@@ -195,18 +191,14 @@ def register_extension_handlers(application):
     application.add_handler(CommandHandler("feedback", feedback_start))
     application.add_handler(CallbackQueryHandler(handle_feedback_rating, pattern="^rate_"))
     
-    # نمونه رهگیری بخش‌های املاک
+    # رهگیری بخش‌ها
     application.add_handler(CallbackQueryHandler(track_section_click, pattern="^(buy_section|rent_section|mortgage_section)$"))
     
-    # دریافت متن‌ها (با استفاده از فیلتر برای تفکیک پیام‌های ادمین و نظرسنجی کاربران)
+    # مدیریت پیام‌های متنی متفرقه
     async def text_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
-        # بررسی پیام انبوه ادمین
-        is_broadcast = await receive_broadcast_text(update, context)
-        if is_broadcast:
+        if await receive_broadcast_text(update, context):
             return
-        # بررسی ثبت نظر متنی کاربر
-        is_feedback = await receive_text_feedback(update, context)
-        if is_feedback:
+        if await receive_text_feedback(update, context):
             return
         
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, text_router))
