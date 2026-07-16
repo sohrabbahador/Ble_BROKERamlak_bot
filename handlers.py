@@ -13,11 +13,15 @@ ADMIN_STATES = {}
 
 async def handle_buy_start(cid, user_id):
     set_session(user_id, kind="فروش", page=1)
+    # ثبت آمار بازدید بخش خرید در دیتابیس
+    db["stats"].update_one({"_id": "clicks"}, {"$inc": {"buy_clicks": 1}}, upsert=True)
     await send_msg(cid, "تعداد اتاق خواب مورد نظرتان را انتخاب کنید:", kb_khab())
 
 
 async def handle_rent_start(cid, user_id):
     set_session(user_id, kind="رهن_اجاره", page=1)
+    # ثبت آمار بازدید بخش رهن و اجاره در دیتابیس
+    db["stats"].update_one({"_id": "clicks"}, {"$inc": {"rent_clicks": 1}}, upsert=True)
     await send_msg(cid, "تعداد اتاق خواب مورد نظرتان را انتخاب کنید:", kb_khab())
 
 
@@ -97,6 +101,7 @@ async def process_bale_webhook(data: dict):
         if is_admin and ADMIN_STATES.get(user_id) == "waiting_broadcast":
             if txt == "بازگشت به منو اصلی":
                 ADMIN_STATES[user_id] = None
+                await send_msg(cid, "عملیات ارسال پیام همگانی لغو شد.", kb_main(is_admin))
             else:
                 ADMIN_STATES[user_id] = None
                 all_users = list(db["users"].find({}, {"user_id": 1}))
@@ -223,9 +228,29 @@ async def process_bale_webhook(data: dict):
             else:
                 await send_msg(cid, "⚠️ ابتدا باید یکبار از طریق دکمه‌های منو جستجوی ملک را کامل کنید تا فیلترهای دلخواه شما شناسایی و ثبت شوند.")
 
-        # بخش آمار ادمین
+        # بخش آمار ادمین (گزارش پیشرفته بله)
         elif is_admin and txt == "📊 آمار ربات":
-            await send_msg(cid, f"📊 **آمار سیستم هوشمند بروکر:**\n\n👤 کل کاربران عضو: {db['users'].count_documents({})} نفر\n🏠 کل املاک ثبت‌شده: {db['files'].count_documents({})} ملک")
+            stats_doc = db["stats"].find_one({"_id": "clicks"}) or {}
+            buy_cnt = stats_doc.get("buy_clicks", 0)
+            rent_cnt = stats_doc.get("rent_clicks", 0)
+            
+            await send_msg(
+                cid, 
+                f"📊 **آمار سیستم هوشمند بروکر:**\n\n"
+                f"👤 کل کاربران عضو: {db['users'].count_documents({})} نفر\n"
+                f"🏠 کل املاک ثبت‌شده: {db['files'].count_documents({})} ملک\n\n"
+                f"🔍 میزان بازدید بخش خرید: {buy_cnt} بار\n"
+                f"🔑 میزان بازدید بخش رهن و اجاره: {rent_cnt} بار"
+            )
+
+        # دکمه لیست ایدی کاربران برای ادمین در بله
+        elif is_admin and txt == "👥 لیست کاربران":
+            users = list(db["users"].find({}, {"user_id": 1, "first_name": 1}))
+            if not users:
+                await send_msg(cid, "کاربری در دیتابیس یافت نشد.")
+            else:
+                users_list = "\n".join([f"• `{u['user_id']}` ({u.get('first_name', 'بدون نام')})" for u in users])
+                await send_msg(cid, f"👥 **لیست کاربران عضو ربات:**\n\n{users_list}")
 
         # دکمه ورود به وضعیت ارسال پیام همگانی ادمین
         elif is_admin and txt == "📢 ارسال پیام همگانی":
