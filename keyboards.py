@@ -22,32 +22,18 @@ def kb_khab():
         "resize_keyboard": True
     }
 
-def kb_custom_budget_1khab():
-    """منوی اختصاصی مرحله ۱ خواب"""
+def kb_custom_budget(khab_type: str):
+    """تولید منوی بودجه داینامیک و متناسب با تعداد خواب انتخاب شده"""
+    suffix = "خواب‌ها"
+    if khab_type == "۴ خواب و بیشتر":
+        suffix = "۴خواب‌ها به بالا"
+    else:
+        suffix = f"{khab_type}ها"
+
     return {
         "keyboard": [
             [{"text": "💵 حداقل بودجه"}, {"text": "💵 حداکثر بودجه"}],
-            [{"text": "📋 مشاهده همه ۱خواب‌ها"}],
-            [{"text": "🔙 مرحله قبل"}, {"text": "بازگشت به منو اصلی"}]
-        ],
-        "resize_keyboard": True
-    }
-
-def kb_budje_forosh():
-    return {
-        "keyboard": [
-            [{"text": "۲۰ تا ۳۰ میلیارد"}, {"text": "۳۰ تا ۴۰ میلیارد"}],
-            [{"text": "۴۰ تا ۵۰ میلیارد"}, {"text": "۵۰ میلیارد به بالا"}],
-            [{"text": "🔙 مرحله قبل"}, {"text": "بازگشت به منو اصلی"}]
-        ],
-        "resize_keyboard": True
-    }
-
-def kb_budje_rahn():
-    return {
-        "keyboard": [
-            [{"text": "کمتر از ۲ میلیارد"}, {"text": "۲ تا ۴ میلیارد"}],
-            [{"text": "۴ تا ۶ میلیارد"}, {"text": "۶ میلیارد به بالا"}],
+            [{"text": f"📋 مشاهده همه {suffix}"}],
             [{"text": "🔙 مرحله قبل"}, {"text": "بازگشت به منو اصلی"}]
         ],
         "resize_keyboard": True
