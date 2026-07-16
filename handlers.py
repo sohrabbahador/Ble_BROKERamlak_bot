@@ -1,3 +1,100 @@
+# handlers.py
+import json
+import re
+from config import db, ADMIN_ID
+from keyboards import (
+    kb_main, kb_khab, kb_meter, kb_next, inline_action, kb_custom_budget
+)
+from core import (
+    get_session, set_session, register_user, save_file, search_files,
+    send_msg, send_pic, get_next_sequence_value
+)
+
+ADMIN_STATES = {}
+
+def parse_budget_text(text: str) -> int:
+    """تبدیل متن‌های بودجه به عدد صحیح ریاضی (تومان) با پشتیبانی کامل از عدد فارسی و انگلیسی"""
+    persian_to_english = str.maketrans('۰۱۲۳۴۵۶۷۸۹', '0123456789')
+    text = text.translate(persian_to_english).lower().strip()
+    
+    numbers = re.findall(r"\d+\.\d+|\d+", text)
+    if not numbers:
+        return 0
+    val = float(numbers[0])
+    
+    if any(x in text for x in ["میلیارد", "milliard", "b"]):
+        return int(val * 10**9)
+    elif any(x in text for x in ["میلیون", "million", "m"]):
+        return int(val * 10**6)
+        
+    return int(val * 10**9) if val < 10000 else int(val)
+
+
+def push_history(user_id, state_name):
+    """ذخیره مرحله فعلی در تاریخچه سشن برای بازگشت به عقب صحیح"""
+    s = get_session(user_id) or {}
+    history = s.get("history", [])
+    if not history or history[-1] != state_name:
+        history.append(state_name)
+    set_session(user_id, history=history)
+
+
+async def show_results(cid, res, is_admin):
+    """نمایش نتایج جستجو به همراه دکمه شیشه‌ای علاقه‌مندی و دکمه صفحه بعد"""
+    if not res:
+        await send_msg(cid, "❌ متاسفانه ملکی با این مشخصات یافت نشد. فیلترها را تغییر دهید یا مجدداً تلاش کنید.", kb_main(is_admin))
+        return
+    for r in res:
+        cap = f"🏠 **پیشنهاد ویژه بروکر**\n\n{r['text'][:300]}..."
+        photos = json.loads(r["photos"]) if r.get("photos") else []
+        if photos:
+            await send_pic(cid, photos[0], cap, inline_action(r["id"]))
+        else:
+            await send_msg(cid, cap, inline_action(r["id"]))
+    await send_msg(cid, "📄 برای مشاهده گزینه‌های بیشتر:", kb_next())
+
+
+async def handle_back_step(cid, user_id, is_admin):
+    """مدیریت بازگشت گام‌به‌گام به عقب بر اساس دکمه (🔙 مرحله قبل)"""
+    s = get_session(user_id) or {}
+    history = s.get("history", [])
+    if len(history) <= 1:
+        set_session(user_id, page=1, kind=None, khab=None, budje_min=None, budje_max=None, meter_min=None, meter_max=None, history=[])
+        await send_msg(cid, "به منوی اصلی بازگشتید:", kb_main(is_admin))
+        return
+    
+    history.pop()  # حذف مرحله فعلی از تاریخچه
+    prev_state = history[-1]
+    set_session(user_id, history=history)
+    
+    if prev_state == "main":
+        set_session(user_id, page=1, kind=None, khab=None, budje_min=None, budje_max=None, meter_min=None, meter_max=None)
+        await send_msg(cid, "نوع عملیات مورد نظرتان را انتخاب کنید:", kb_main(is_admin))
+    elif prev_state == "select_khab":
+        set_session(user_id, khab=None, budje_min=None, budje_max=None, meter_min=None, meter_max=None)
+        await send_msg(cid, "تعداد اتاق خواب مورد نظرتان را انتخاب کنید:", kb_khab())
+    elif prev_state == "select_budget":
+        set_session(user_id, budje_min=None, budje_max=None, meter_min=None, meter_max=None)
+        khab = s.get("khab")
+        if khab:
+            await send_msg(cid, f"تنظیمات بودجه ملک {khab}ه:", kb_custom_budget(khab))
+        else:
+            await send_msg(cid, "تعداد اتاق خواب مورد نظرتان را انتخاب کنید:", kb_khab())
+    elif prev_state == "select_meter":
+        set_session(user_id, meter_min=None, meter_max=None)
+        await send_msg(cid, "حدود متراژ ملک را انتخاب کنید:", kb_meter())
+
+
+async def handle_start_flow(cid, user_id, kind):
+    """شروع فرآیند جستجوی ملک و ثبت آمار کلیک‌ها"""
+    set_session(user_id, kind=kind, page=1, history=[])
+    push_history(user_id, "main")
+    push_history(user_id, "select_khab")
+    click_field = "buy_clicks" if kind == "فروش" else "rent_clicks"
+    db["stats"].update_one({"_id": "clicks"}, {"$inc": {click_field: 1}}, upsert=True)
+    await send_msg(cid, "تعداد اتاق خواب مورد نظرتان را انتخاب کنید:", kb_khab())
+
+
 async def process_bale_webhook(data: dict):
     """پردازشگر اصلی پیام‌های بله"""
     if "callback_query" in data:
@@ -31,21 +128,8 @@ async def process_bale_webhook(data: dict):
         user_id = cid
         is_admin = (user_id == ADMIN_ID)
         s = get_session(user_id) or {}
-        kind = s.get("kind")
 
-        # --- گارد جداسازی رهن و اجاره (اضافه شده) ---
-        if kind == "رهن_اجاره":
-            # اینجا کدهای اختصاصی رهن و اجاره شما قرار می‌گیرد
-            # برای مثال بازگشت به منو اصلی:
-            if txt in ["/start", "بازگشت به منو اصلی"]:
-                set_session(user_id, page=1, kind=None, khab=None, budje_min=None, budje_max=None, meter_min=None, meter_max=None, history=[])
-                await send_msg(cid, "به منوی اصلی بازگشتید:", kb_main(is_admin))
-                return
-            # ... بقیه منطق رهن و اجاره (ودیعه/اجاره) اینجا اضافه می‌شود ...
-            return 
-        # --- پایان گارد ---
-
-        # دکمه بازگشت به عقب (کد اصلی شما ادامه پیدا می‌کند)
+        # دکمه بازگشت به عقب
         if txt == "🔙 مرحله قبل":
             ADMIN_STATES[user_id] = None
             await handle_back_step(cid, user_id, is_admin)
@@ -64,7 +148,7 @@ async def process_bale_webhook(data: dict):
                 await send_msg(cid, "عملیات لغو شد.", kb_main(is_admin))
             return
 
-        # دریافت مبالغ عددی بودجه با گارد امنیتی
+        # دریافت مبالغ عددی بودجه با گارد امنیتی (لغو در صورت زدن کلیدهای سیستم)
         if ADMIN_STATES.get(user_id) in ["waiting_min_budget", "waiting_max_budget"]:
             if "مشاهده همه" in txt or txt in ["🔙 مرحله قبل", "بازگشت به منو اصلی", "💵 حداقل بودجه", "💵 حداکثر بودجه"]:
                 ADMIN_STATES[user_id] = None
@@ -105,6 +189,7 @@ async def process_bale_webhook(data: dict):
                 ]
             })
 
+        # فرآیند انتخاب خواب (یکپارچه برای کلیه خواب‌ها)
         elif "خواب" in txt and "مشاهده" not in txt:
             clean_khab = txt.replace(" ", "")
             final_khab = "۴ خواب و بیشتر" if ("۴" in clean_khab or "بیشتر" in clean_khab) else txt.strip()
@@ -112,6 +197,7 @@ async def process_bale_webhook(data: dict):
             push_history(user_id, "select_khab")
             await send_msg(cid, f"بودجه مورد نظر برای {final_khab} را تعیین کنید یا همه فایل‌ها را ببینید:", kb_custom_budget(final_khab))
 
+        # ورود بودجه دلخواه بر اساس تفکیک قیمتی خواب‌ها
         elif txt == "💵 حداقل بودجه":
             ADMIN_STATES[user_id] = "waiting_min_budget"
             khab_val = s.get("khab", "۱ خواب")
@@ -124,12 +210,14 @@ async def process_bale_webhook(data: dict):
             example_val = "20 میلیارد" if khab_val == "۱ خواب" else "100 میلیارد"
             await send_msg(cid, f"✍️ حداکثر بودجه خود را بفرستید:\n(مثال؛ {example_val}):")
 
+        # دکمه‌های «مشاهده همه» برای انواع خواب‌ها بدون فیلتر بودجه و متراژ
         elif "📋 مشاهده همه" in txt or "مشاهده همه" in txt:
-            ADMIN_STATES[user_id] = None
+            ADMIN_STATES[user_id] = None  # ریست قطعی حالت انتظار بودجه
             khab_val = s.get("khab", "۱ خواب")
             res = search_files(s.get("kind"), khab_val, None, None, None, None, 1)
             await show_results(cid, res, is_admin)
 
+        # دریافت متراژ و نمایش نهایی نتایج
         elif "متر" in txt:
             m_map = {"کمتر از ۱۰۰ متر": (0, 100), "۱۰۰ تا ۱۵۰ متر": (100, 150), "۱۵۰ تا ۲۰۰ متر": (150, 200), "بیشتر از ۲۰۰ متر": (200, 999)}
             v = m_map.get(txt, (0, 999))
@@ -149,6 +237,7 @@ async def process_bale_webhook(data: dict):
             else:
                 await show_results(cid, res, is_admin)
 
+        # علاقه‌مندی‌ها
         elif txt == "⭐ علاقه‌مندی‌ها":
             favs = list(db["favorites"].find({"user_id": user_id}))
             if not favs:
@@ -173,6 +262,7 @@ async def process_bale_webhook(data: dict):
             else:
                 await send_msg(cid, "⚠️ ابتدا باید یکبار از طریق دکمه‌های منو جستجوی ملک را کامل کنید.")
 
+        # آمار ادمین
         elif is_admin and txt == "📊 آمار ربات":
             stats = db["stats"].find_one({"_id": "clicks"}) or {}
             await send_msg(cid, f"📊 **آمار:**\n👤 کل کاربران: {db['users'].count_documents({})}\n🏠 کل املاک: {db['files'].count_documents({})}\n🔍 کلیک خرید: {stats.get('buy_clicks', 0)}\n🔑 کلیک رهن: {stats.get('rent_clicks', 0)}")
@@ -185,6 +275,7 @@ async def process_bale_webhook(data: dict):
             ADMIN_STATES[user_id] = "waiting_broadcast"
             await send_msg(cid, "✍️ متن پیام همگانی را بفرستید:", {"keyboard": [[{"text": "بازگشت به منو اصلی"}]], "resize_keyboard": True})
 
+        # جستجوی متنی آزاد سراسری
         else:
             res = list(db["files"].find({"text": {"$regex": txt, "$options": "i"}}).limit(5))
             if not res:
