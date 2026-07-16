@@ -135,7 +135,7 @@ async def process_bale_webhook(data: dict):
                         {"text": "📱 09003692401", "url": "tel:09003692401"}
                     ],
                     [
-                        {"text": "🟢 پیام در بله (پشتیبانی سریع) 💬", "url": "https://ble.ir/sohrabbahador"}
+                        {"text": "🟢 پیام در بله  💬", "url": "https://ble.ir/sohrabbahador"}
                     ]
                 ]
             }
