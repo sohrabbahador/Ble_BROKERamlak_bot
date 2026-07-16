@@ -131,11 +131,11 @@ async def process_bale_webhook(data: dict):
             support_keyboard = {
                 "inline_keyboard": [
                     [
-                        {"text": "📞 تماس با خط ۱", "url": "tel:09123692401"},
-                        {"text": "📞 تماس با خط ۲", "url": "tel:09003692401"}
+                        {"text": "📱 09123692401", "url": "tel:09123692401"},
+                        {"text": "📱 09003692401", "url": "tel:09003692401"}
                     ],
                     [
-                        {"text": "💬 پیام در بله", "url": "https://ble.ir/sohrabbahador"}
+                        {"text": "🟢 پیام در بله (پشتیبانی سریع) 💬", "url": "https://ble.ir/sohrabbahador"}
                     ]
                 ]
             }
