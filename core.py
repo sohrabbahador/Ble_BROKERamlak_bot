@@ -2,30 +2,14 @@
 import json
 import re
 import httpx
-from pymongo import MongoClient
-
-# تنظیمات اصلی
-TOKEN = "1163386061:P7CDH8D1hGtiZ1OB1-5jXuOClUgRK1y3TeU"
-BASE_URL = f"https://tapi.bale.ai/bot{TOKEN}"
-MAIN_CHANNEL_URL = "https://ble.ir/BROKER_amlak"
-ADMIN_ID = 123456789  # شناسه عددی سهراب بهادر (مدیر)
-
-# اتصال به دیتابیس ابری MongoDB
-MONGO_URI = "mongodb+srv://sohrabbahador2_db_user:48whO2iH0lCDGzeK@cluster0.tbsddnd.mongodb.net/?appName=Cluster0"
-mongo_client = MongoClient(MONGO_URI)
-db = mongo_client["broker_database"]  # نام دیتابیس پیش‌فرض
-
-
-def get_db():
-    return db
-
+from config import db, TOKEN, BASE_URL, MAIN_CHANNEL_URL, ADMIN_ID
 
 def init_db():
     """ایجاد ایندکس‌های یکتا برای حفظ ساختار کلیدهای اصلی مشابه با دیتابیس قبلی"""
     db["sessions"].create_index("user_id", unique=True)
     db["users"].create_index("user_id", unique=True)
     
-    # شبیه‌سازی ساختار AUTOINCREMENT دیتابیس قبلی برای آیدی فایل‌ها، آلارم‌ها و علاقه‌مندی‌ها
+    # شبیه‌سازی ساختار AUTOINCREMENT دیتابیس برای آیدی فایل‌ها، آلارم‌ها و علاقه‌مندی‌ها
     if db["counters"].count_documents({"_id": "file_id"}) == 0:
         db["counters"].insert_one({"_id": "file_id", "sequence_value": 0})
     if db["counters"].count_documents({"_id": "alert_id"}) == 0:
@@ -80,7 +64,6 @@ def extract_info(text):
         
         b_rahn = re.search(r"(?:رهن|ودیعه).*?(\d+)\s*(?:میلیارد|میلیاردی)", text_en) or re.search(r"(\d+)\s*(?:میلیارد|میلیاردی)", text_en)
         m_rahn = re.search(r"(?:رهن|ودیعه).*?(\d+)\s*(?:میلیون|میلیونی)", text_en) or re.search(r"(\d+)\s*(?:میلیون|میلیونی)", text_en)
-        
         m_ejare = re.search(r"اجاره.*?(\d+)\s*(?:میلیون|میلیونی)", text_en)
         
         if b_rahn:
@@ -135,7 +118,8 @@ async def check_alerts_and_notify(text, kind, khab, price, meter, photos):
 
         cap = f"🔔 **ملک جدید مطابق با فیلتر شما ثبت شد!**\n\n{text[:300]}..."
         
-        from main import inline_action
+        # برای جلوگیری از ایمپورت چرخه‌ای، دکمه شیشه‌ای را از فایل کیبورد می‌خوانیم
+        from keyboards import inline_action
         
         last_file = db["files"].find_one(sort=[("id", -1)])
         fid = last_file["id"] if last_file else 1
