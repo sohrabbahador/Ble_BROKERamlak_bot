@@ -111,57 +111,6 @@ async def receive_broadcast_text(update: Update, context: ContextTypes.DEFAULT_T
     await update.message.reply_text("⏳ پیام در صف ارسال انبوه قرار گرفت. نتیجه پس از اتمام گزارش می‌شود.")
     return True
 
-# ----------------- بخش ۳: دکمه نظرسنجی و ثبت بازخورد -----------------
-
-async def feedback_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """شروع فرآیند نظرسنجی"""
-    keyboard = [
-        [InlineKeyboardButton("⭐ عالی", callback_data="rate_5"), InlineKeyboardButton("👍 خوب", callback_data="rate_4")],
-        [InlineKeyboardButton("😐 متوسط", callback_data="rate_3"), InlineKeyboardButton("👎 ضعیف", callback_data="rate_2")]
-    ]
-    reply_markup = InlineKeyboardMarkup(keyboard)
-    await update.message.reply_text(
-        "🌸 خوشحال می‌شویم با ثبت نظر خود، ما را در ارائه خدمات بهتر یاری کنید.\nکیفیت پاسخگویی و خدمات ربات را چطور ارزیابی می‌کنید؟",
-        reply_markup=reply_markup
-    )
-
-async def handle_feedback_rating(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """ثبت امتیاز عددی و درخواست نظر متنی"""
-    query = update.callback_query
-    if not query.data.startswith("rate_"):
-        return
-    
-    await query.answer()
-    rating = query.data.split("_")[1]
-    context.user_data["user_rating"] = rating
-    context.user_data["waiting_for_text_feedback"] = True
-    
-    stars = "⭐" * int(rating)
-    await query.message.edit_text(
-        f"ثبت شد: {stars}\n\n✍️ در صورت تمایل، انتقاد یا پیشنهاد خود را بنویسید و ارسال کنید:"
-    )
-
-async def receive_text_feedback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """دریافت متن نظر و ارسال آن برای ادمین"""
-    if not context.user_data.get("waiting_for_text_feedback"):
-        return False
-    
-    context.user_data["waiting_for_text_feedback"] = False
-    feedback_text = update.message.text
-    user = update.effective_user
-    rating = context.user_data.get("user_rating", "?")
-    
-    # ارسال به ادمین
-    admin_notification = (
-        f"📥 **نظرسنجی جدید دریافت شد!**\n\n"
-        f"👤 کاربر: {user.mention_html()} (ID: `{user.id}`)\n"
-        f"⭐ امتیاز ثبت شده: {'⭐' * int(rating) if rating.isdigit() else rating}\n"
-        f"💬 متن نظر:\n_{feedback_text}_"
-    )
-    await context.bot.send_message(chat_id=ADMIN_ID, text=admin_notification, parse_mode="HTML")
-    await update.message.reply_text("💖 نظر شما با موفقیت ثبت شد. از همراهی شما سپاسگزاریم!")
-    return True
-
 # ----------------- بخش رهگیری بازدیدها -----------------
 
 async def track_section_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -187,18 +136,12 @@ def register_extension_handlers(application):
     application.add_handler(CommandHandler("admin", admin_menu))
     application.add_handler(CallbackQueryHandler(handle_admin_buttons, pattern="^(list_users|start_broadcast|get_report)$"))
     
-    # نظرسنجی
-    application.add_handler(CommandHandler("feedback", feedback_start))
-    application.add_handler(CallbackQueryHandler(handle_feedback_rating, pattern="^rate_"))
-    
     # رهگیری بخش‌ها
     application.add_handler(CallbackQueryHandler(track_section_click, pattern="^(buy_section|rent_section|mortgage_section)$"))
     
     # مدیریت پیام‌های متنی متفرقه
     async def text_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if await receive_broadcast_text(update, context):
-            return
-        if await receive_text_feedback(update, context):
             return
         
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, text_router))
