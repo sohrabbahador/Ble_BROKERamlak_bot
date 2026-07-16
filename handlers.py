@@ -121,16 +121,25 @@ async def process_bale_webhook(data: dict):
         elif txt == "🔑 رهن و اجاره":
             await handle_rent_start(cid, user_id)
 
-        # پردازش دکمه پشتیبانی
-        elif txt == "📞 پشتیبانی":
+        # پردازش دکمه پشتیبانی به صورت شیشه‌ای و برقراری تماس خودکار
+        elif "پشتیبانی" in txt:
             support_text = (
-                "📞 **پل‌های ارتباطی با کارشناسان و مدیریت بروکر:**\n\n"
-                "برای سپردن ملک، هماهنگی جهت بازدید و یا دریافت مشاوره اختصاصی می‌توانید از راه‌های زیر اقدام کنید:\n\n"
-                "💬 **ارتباط در بله:** @sohrab_bahador\n"
-                "📞 **شماره تماس مستقیم:** 09123456789\n\n"
-                "⏱️ ساعت پاسخگویی: همه روزه از ساعت ۹ الی ۲۱"
+                "📞 **پشتیبانی بروکر**\n\n"
+                "جهت سپردن ملک، هماهنگی بازدید یا مشاوره، با کلیک روی دکمه‌های زیر می‌توانید مستقیماً با ما تماس بگیرید یا در بله پیام دهید:"
             )
-            await send_msg(cid, support_text, kb_main(is_admin))
+            
+            support_keyboard = {
+                "inline_keyboard": [
+                    [
+                        {"text": "📞 تماس با خط ۱", "url": "tel:09123692401"},
+                        {"text": "📞 تماس با خط ۲", "url": "tel:09003692401"}
+                    ],
+                    [
+                        {"text": "💬 پیام در بله", "url": "https://ble.ir/sohrabbahador"}
+                    ]
+                ]
+            }
+            await send_msg(cid, support_text, support_keyboard)
 
         elif "خواب" in txt:
             clean_khab = txt.replace(" ", "")
