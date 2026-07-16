@@ -13,17 +13,23 @@ from core import (
 ADMIN_STATES = {}
 
 def parse_budget_text(text: str) -> int:
-    """تبدیل متن‌های بودجه به عدد صحیح ریاضی (تومان)"""
+    """تبدیل متن‌های بودجه به عدد صحیح ریاضی (تومان) - پشتیبانی کامل از عدد فارسی و انگلیسی"""
     persian_to_english = str.maketrans('۰۱۲۳۴۵۶۷۸۹', '0123456789')
     text = text.translate(persian_to_english).lower().strip()
-    numbers = re.findall(r"[-+]?\d*\.\d+|\d+", text)
+    
+    # استخراج اعداد اعشاری یا صحیح
+    numbers = re.findall(r"\d+\.\d+|\d+", text)
     if not numbers:
         return 0
     val = float(numbers[0])
-    if "میلیارد" in text or "milliard" in text or "b" in text:
+    
+    # تشخیص واحدها
+    if any(x in text for x in ["میلیارد", "milliard", "b"]):
         return int(val * 10**9)
-    elif "میلیون" in text or "million" in text or "m" in text:
+    elif any(x in text for x in ["میلیون", "million", "m"]):
         return int(val * 10**6)
+        
+    # اگر واحد دستی نوشته نشده بود، بر اساس مقیاس عدد تصمیم‌گیری کن
     return int(val * 10**9) if val < 10000 else int(val)
 
 
@@ -37,7 +43,7 @@ def push_history(user_id, state_name):
 
 
 async def show_results(cid, res, is_admin):
-    """تابع کمکی یکپارچه برای نمایش نتایج جستجو و دکمه صفحه بعد (حذف کدهای تکراری)"""
+    """تابع کمکی یکپارچه برای نمایش نتایج جستجو و دکمه صفحه بعد"""
     if not res:
         await send_msg(cid, "❌ متاسفانه ملکی با این مشخصات یافت نشد. فیلترها را تغییر دهید یا مجدداً تلاش کنید.", kb_main(is_admin))
         return
@@ -128,8 +134,12 @@ async def process_bale_webhook(data: dict):
 
         # ۱. دکمه مرحله قبل
         if txt == "🔙 مرحله قبل":
+            ADMIN_STATES[user_id] = None
             await handle_back_step(cid, user_id, is_admin)
             return
+
+        if txt == "بازگشت به منو اصلی":
+            ADMIN_STATES[user_id] = None
 
         # ۲. بخش ادمین - ارسال پیام همگانی
         if is_admin and ADMIN_STATES.get(user_id) == "waiting_broadcast":
@@ -141,22 +151,26 @@ async def process_bale_webhook(data: dict):
                 await send_msg(cid, "عملیات لغو شد.", kb_main(is_admin))
             return
 
-        # ۳. دریافت مبالغ دلخواه برای ۱ خواب
+        # ۳. دریافت مبالغ دلخواه برای ۱ خواب (با گارد امنیتی لغو حالت انتظار در صورت کلیک بر روی سایر دکمه‌ها)
         if ADMIN_STATES.get(user_id) in ["waiting_min_budget", "waiting_max_budget"]:
-            budget_val = parse_budget_text(txt)
-            if budget_val == 0:
-                await send_msg(cid, "⚠️ لطفاً یک مبلغ معتبر وارد کنید (مثال: ۲.۵ میلیارد یا ۳۰۰ میلیون):")
-                return
-            state = ADMIN_STATES[user_id]
-            ADMIN_STATES[user_id] = None
-            if state == "waiting_min_budget":
-                set_session(user_id, budje_min=budget_val)
-                await send_msg(cid, f"✅ حداقل بودجه ثبت شد: {budget_val:,} تومان\nسقف بودجه را تعیین کنید یا مستقیماً متراژ را انتخاب کنید.", kb_custom_budget_1khab())
+            # گارد امنیتی: اگر کاربر دکمه‌های منو را کلیک کرد، حالت انتظار را لغو کن و نادیده بگیر
+            if txt in ["📋 مشاهده همه ۱خواب‌ها", "مشاهده همه ۱خواب‌ها", "🔙 مرحله قبل", "بازگشت به منو اصلی", "💵 حداقل بودجه", "💵 حداکثر بودجه"]:
+                ADMIN_STATES[user_id] = None
             else:
-                set_session(user_id, budje_max=budget_val)
-                await send_msg(cid, f"✅ حداکثر بودجه ثبت شد: {budget_val:,} تومان\nحدود متراژ ملک را انتخاب کنید:", kb_meter())
-                push_history(user_id, "select_budget")
-            return
+                budget_val = parse_budget_text(txt)
+                if budget_val == 0:
+                    await send_msg(cid, "⚠️ لطفاً یک مبلغ معتبر وارد کنید (مثال: 10 میلیارد):")
+                    return
+                state = ADMIN_STATES[user_id]
+                ADMIN_STATES[user_id] = None
+                if state == "waiting_min_budget":
+                    set_session(user_id, budje_min=budget_val)
+                    await send_msg(cid, f"✅ حداقل بودجه ثبت شد: {budget_val:,} تومان\nسقف بودجه را تعیین کنید یا مستقیماً متراژ را انتخاب کنید.", kb_custom_budget_1khab())
+                else:
+                    set_session(user_id, budje_max=budget_val)
+                    await send_msg(cid, f"✅ حداکثر بودجه ثبت شد: {budget_val:,} تومان\nحدود متراژ ملک را انتخاب کنید:", kb_meter())
+                    push_history(user_id, "select_budget")
+                return
 
         # ۴. هدایت کلیدهای منوی اصلی
         if txt in ["/start", "بازگشت به منو اصلی"]:
@@ -176,7 +190,7 @@ async def process_bale_webhook(data: dict):
             })
 
         # ۵. فرآیند انتخاب خواب
-        elif "خواب" in txt:
+        elif "خواب" in txt and "مشاهده" not in txt:
             clean_khab = txt.replace(" ", "")
             final_khab = "۴ خواب و بیشتر" if ("۴" in clean_khab or "بیشتر" in clean_khab) else txt.strip()
             set_session(user_id, khab=final_khab)
@@ -190,16 +204,19 @@ async def process_bale_webhook(data: dict):
         # دکمه‌های اختصاصی ۱ خواب
         elif txt == "💵 حداقل بودجه":
             ADMIN_STATES[user_id] = "waiting_min_budget"
-            await send_msg(cid, "✍️ حداقل بودجه خود را بفرستید (مثال: ۲.۵ میلیارد):")
+            await send_msg(cid, "✍️ حداقل بودجه خود را بنویسید و ارسال کنید:\n(مثال: 10 میلیارد):")
         elif txt == "💵 حداکثر بودجه":
             ADMIN_STATES[user_id] = "waiting_max_budget"
-            await send_msg(cid, "✍️ حداکثر بودجه خود را بفرستید (مثال: ۵ میلیارد):")
-        elif txt == "📋 مشاهده همه ۱خواب‌ها":
+            await send_msg(cid, "✍️ حداکثر بودجه خود را بفرستید:\n(مثال: 20 میلیارد):")
+        elif txt in ["📋 مشاهده همه ۱خواب‌ها", "مشاهده همه ۱خواب‌ها"]:
+            ADMIN_STATES[user_id] = None  # حتماً حالت انتظار بودجه را ریست کن
             res = search_files(s.get("kind"), "۱ خواب", None, None, None, None, 1)
             await show_results(cid, res, is_admin)
 
         # ۶. فیلتر بودجه و متراژ
         elif any(w in txt for w in ["میلیارد", "میلیونی"]):
+            # از ایمپورت کردن پویا یا تعریف رنج استفاده کنید
+            from core import get_buy_budget_ranges, get_rent_budget_ranges
             b_map = {**get_buy_budget_ranges(), **get_rent_budget_ranges()}
             v = b_map.get(txt, (0, 999 * 10**9))
             set_session(user_id, budje_min=v[0], budje_max=v[1])
