@@ -13,14 +13,12 @@ ADMIN_STATES = {}
 
 async def handle_buy_start(cid, user_id):
     set_session(user_id, kind="فروش", page=1)
-    # ثبت آمار بازدید بخش خرید در دیتابیس
     db["stats"].update_one({"_id": "clicks"}, {"$inc": {"buy_clicks": 1}}, upsert=True)
     await send_msg(cid, "تعداد اتاق خواب مورد نظرتان را انتخاب کنید:", kb_khab())
 
 
 async def handle_rent_start(cid, user_id):
     set_session(user_id, kind="رهن_اجاره", page=1)
-    # ثبت آمار بازدید بخش رهن و اجاره در دیتابیس
     db["stats"].update_one({"_id": "clicks"}, {"$inc": {"rent_clicks": 1}}, upsert=True)
     await send_msg(cid, "تعداد اتاق خواب مورد نظرتان را انتخاب کنید:", kb_khab())
 
@@ -46,7 +44,6 @@ def get_rent_budget_ranges():
 async def process_bale_webhook(data: dict):
     """پردازشگر اصلی پیام‌ها و رویدادهای دریافتی از پیام‌رسان بله"""
     
-    # ۱. مدیریت Callback Query (کلیک روی دکمه‌های شیشه‌ای مثل علاقه‌مندی)
     if "callback_query" in data:
         cb = data["callback_query"]
         cid = cb["message"]["chat"]["id"]
@@ -60,7 +57,6 @@ async def process_bale_webhook(data: dict):
                 await send_msg(cid, "⚠️ این فایل قبلاً در لیست علاقه‌مندی‌های شما ثبت شده است.")
         return
 
-    # ۲. استخراج پیام متنی یا کپشن تصویر
     msg = (
         data.get("message") 
         or data.get("edited_message") 
@@ -80,7 +76,6 @@ async def process_bale_webhook(data: dict):
     if ctype == "private":
         register_user(cid, first_name)
 
-    # ۳. دریافت و ثبت املاک جدید از کانال
     if ctype == "channel":
         photos = []
         if "photo" in msg:
@@ -91,13 +86,11 @@ async def process_bale_webhook(data: dict):
             await save_file(txt, [p for p in photos if p])
         return
 
-    # ۴. مدیریت تعاملات در چت خصوصی (کاربران و ادمین)
     if ctype == "private":
         user_id = cid
         is_admin = (user_id == ADMIN_ID)
         s = get_session(user_id)
 
-        # ارسال پیام همگانی توسط ادمین
         if is_admin and ADMIN_STATES.get(user_id) == "waiting_broadcast":
             if txt == "بازگشت به منو اصلی":
                 ADMIN_STATES[user_id] = None
@@ -115,7 +108,6 @@ async def process_bale_webhook(data: dict):
                 await send_msg(cid, f"✅ پیام همگانی با موفقیت به {success_count} کاربر ارسال شد.", kb_main(is_admin))
                 return
 
-        # شروع کار یا بازگشت به منو اصلی
         if txt in ["/start", "بازگشت به منو اصلی"]:
             set_session(user_id, page=1, kind=None, khab=None, budje_min=None, budje_max=None, meter_min=None, meter_max=None)
             welcome_text = f"سلام {first_name} عزیز، به ربات هوشمند بروکر خوش آمدید. 🏠\n\nنوع عملیات مورد نظرتان را انتخاب کنید:"
@@ -129,7 +121,17 @@ async def process_bale_webhook(data: dict):
         elif txt == "🔑 رهن و اجاره":
             await handle_rent_start(cid, user_id)
 
-        # انتخاب تعداد اتاق خواب
+        # پردازش دکمه پشتیبانی
+        elif txt == "📞 پشتیبانی":
+            support_text = (
+                "📞 **پل‌های ارتباطی با کارشناسان و مدیریت بروکر:**\n\n"
+                "برای سپردن ملک، هماهنگی جهت بازدید و یا دریافت مشاوره اختصاصی می‌توانید از راه‌های زیر اقدام کنید:\n\n"
+                "💬 **ارتباط در بله:** @sohrab_bahador\n"
+                "📞 **شماره تماس مستقیم:** 09123456789\n\n"
+                "⏱️ ساعت پاسخگویی: همه روزه از ساعت ۹ الی ۲۱"
+            )
+            await send_msg(cid, support_text, kb_main(is_admin))
+
         elif "خواب" in txt:
             clean_khab = txt.replace(" ", "")
             final_khab = "۴ خواب و بیشتر" if ("۴" in clean_khab or "بیشتر" in clean_khab) else txt.strip()
@@ -140,7 +142,6 @@ async def process_bale_webhook(data: dict):
             else:
                 await send_msg(cid, "بازه رهن مورد نظرتان را انتخاب کنید:", kb_budje_rahn())
 
-        # انتخاب بازه بودجه
         elif any(w in txt for w in ["میلیارد", "میلیونی"]):
             b_map = {}
             b_map.update(get_buy_budget_ranges())
@@ -149,7 +150,6 @@ async def process_bale_webhook(data: dict):
             set_session(user_id, budje_min=v[0], budje_max=v[1])
             await send_msg(cid, "حدود متراژ ملک را انتخاب کنید:", kb_meter())
 
-        # انتخاب متراژ و نمایش نتایج اولیه جستجو
         elif "متر" in txt:
             m_map = {"کمتر از ۱۰۰ متر": (0, 100), "۱۰۰ تا ۱۵۰ متر": (100, 150), "۱۵۰ تا ۲۰۰ متر": (150, 200), "بیشتر از ۲۰۰ متر": (200, 999)}
             v = m_map.get(txt, (0, 999))
@@ -171,7 +171,6 @@ async def process_bale_webhook(data: dict):
             else:
                 await send_msg(cid, "خطایی رخ داد. لطفاً مجدداً جستجو را آغاز کنید.", kb_main(is_admin))
 
-        # دکمه صفحه بعد برای صفحه‌بندی نتایج جستجو
         elif txt == "صفحه بعد":
             s = get_session(user_id)
             if s:
@@ -193,7 +192,6 @@ async def process_bale_webhook(data: dict):
             else:
                 await send_msg(cid, "نشست کاربری شما یافت نشد. بازگشت به منو اصلی...", kb_main(is_admin))
 
-        # دکمه علاقه‌مندی‌ها
         elif txt == "⭐ علاقه‌مندی‌ها":
             favs = list(db["favorites"].find({"user_id": user_id}))
             if not favs:
@@ -210,11 +208,9 @@ async def process_bale_webhook(data: dict):
                         else:
                             await send_msg(cid, r["text"], inline_action(r["id"]))
 
-        # راهنمای جستجوی سریع
         elif "🔍 جستجوی سریع" in txt:
             await send_msg(cid, "کافیست نام محله (مثلاً جنت‌آباد) یا ویژگی مورد نظرتان را بنویسید و بفرستید تا سریعاً جستجو کنم:")
 
-        # تنظیم گوش‌به‌زنگ بر اساس فیلترهای آخرین جستجوی کاربر
         elif txt == "🔔 تنظیم گوش‌به‌زنگ":
             s = get_session(user_id)
             if s and s.get("kind"):
@@ -228,7 +224,6 @@ async def process_bale_webhook(data: dict):
             else:
                 await send_msg(cid, "⚠️ ابتدا باید یکبار از طریق دکمه‌های منو جستجوی ملک را کامل کنید تا فیلترهای دلخواه شما شناسایی و ثبت شوند.")
 
-        # بخش آمار ادمین (گزارش پیشرفته بله)
         elif is_admin and txt == "📊 آمار ربات":
             stats_doc = db["stats"].find_one({"_id": "clicks"}) or {}
             buy_cnt = stats_doc.get("buy_clicks", 0)
@@ -243,7 +238,6 @@ async def process_bale_webhook(data: dict):
                 f"🔑 میزان بازدید بخش رهن و اجاره: {rent_cnt} بار"
             )
 
-        # دکمه لیست ایدی کاربران برای ادمین در بله
         elif is_admin and txt == "👥 لیست کاربران":
             users = list(db["users"].find({}, {"user_id": 1, "first_name": 1}))
             if not users:
@@ -252,12 +246,10 @@ async def process_bale_webhook(data: dict):
                 users_list = "\n".join([f"• `{u['user_id']}` ({u.get('first_name', 'بدون نام')})" for u in users])
                 await send_msg(cid, f"👥 **لیست کاربران عضو ربات:**\n\n{users_list}")
 
-        # دکمه ورود به وضعیت ارسال پیام همگانی ادمین
         elif is_admin and txt == "📢 ارسال پیام همگانی":
             ADMIN_STATES[user_id] = "waiting_broadcast"
             await send_msg(cid, "✍️ لطفاً متنی که می‌خواهید برای تمام کاربران ارسال شود را بنویسید و بفرستید:\n(برای لغو، دکمه بازگشت به منو اصلی را بزنید.)", {"keyboard": [[{"text": "بازگشت به منو اصلی"}]], "resize_keyboard": True})
 
-        # بخش جستجوی سریع متنی (Regex) در صورت همخوانی نداشتن با دکمه‌ها
         else:
             res = list(db["files"].find({"text": {"$regex": txt, "$options": "i"}}).limit(5))
             if not res:
