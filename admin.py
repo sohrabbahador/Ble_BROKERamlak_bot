@@ -13,7 +13,7 @@ if ctype == "private":
     is_admin = (user_id == ADMIN_ID)
 
     if txt in ["/start", "بازگشت به منو اصلی"]:
-        welcome = f"سلام {first_name} عزیز 👑 منوی مدیریت:" if is_admin else f"سلام {first_name} عزیز، به ربات هوشمند خوش آمدید. 🏠"
+        welcome = f"سلام {first_name} عزیز 👑 منوی مدیریت:" if is_admin else f"سلام {first_name} عزیز، به خدمات ملکی هوشمند « بروکر املاک » خوش آمدید. 🏠"
         await send_msg(cid, welcome, kb_main(is_admin))
 
     # پنل ادمین - ارسال پیام همگانی
