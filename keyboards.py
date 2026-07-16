@@ -8,7 +8,9 @@ def kb_main(is_admin=False):
         [{"text": "🔔 تنظیم گوش‌به‌زنگ"}]
     ]
     if is_admin:
-        kb.append([{"text": "📊 آمار ربات"}, {"text": "📢 ارسال پیام همگانی"}])
+        # اضافه شدن دکمه‌های مدیریت پیشرفته به منوی اصلی ادمین در بله
+        kb.append([{"text": "📊 آمار ربات"}, {"text": "👥 لیست کاربران"}])
+        kb.append([{"text": "📢 ارسال پیام همگانی"}, {"text": "بازگشت به منو اصلی"}])
     return {"keyboard": kb, "resize_keyboard": True}
 
 def kb_khab():
