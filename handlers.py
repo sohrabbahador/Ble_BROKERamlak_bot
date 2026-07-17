@@ -15,6 +15,17 @@ from archive import (
     handle_back_step, handle_start_flow, register_alert, 
     get_bot_stats, get_users_list
 )
+# عضو گیری استارت و ورود به کانال 
+async def handle_user_actions(cid, user_id, txt):
+    if txt == "/start":
+        await register_user(user_id)
+        return
+
+    locked = ["🏠 خرید", "🔑 رهن و اجاره", "🔍 جستجوی سریع", "⭐ علاقه‌مندی‌ها", "🔔 تنظیم گوش به زنگ", "📞 پشتیبانی"]
+    
+    if txt in locked and not await check_user_membership(user_id):
+        await send_msg(cid, "⚠️ برای استفاده از این بخش، ابتدا در کانال ما عضو شوید:\nhttps://ble.ir/BROKER_amlak")
+        return
 
 async def process_bale_webhook(data: dict):
     if "callback_query" in data:
