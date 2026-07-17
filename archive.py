@@ -5,7 +5,7 @@ import re
 from core import get_session, set_session, send_msg, send_pic
 from keyboards import kb_main, kb_next, inline_action
 
-# این تابع متن‌های حاوی مبالغ فارسی یا انگلیسی را به عدد خالص تبدیل می‌کند
+# ۱ این تابع متن‌های حاوی مبالغ فارسی یا انگلیسی را به عدد خالص تبدیل می‌کند
 def parse_budget_text(text: str) -> int:
     persian_to_english = str.maketrans('۰۱۲۳۴۵۶۷۸۹', '0123456789')
     text = text.translate(persian_to_english).lower().strip()
@@ -16,7 +16,7 @@ def parse_budget_text(text: str) -> int:
     elif any(x in text for x in ["میلیون", "million", "m"]): return int(val * 10**6)
     return int(val * 10**9) if val < 10000 else int(val)
 
-# این تابع مرحله فعلی کاربر را در سشن ذخیره می‌کند تا قابلیت بازگشت به مرحله قبل فعال شود
+# ۲ این تابع مرحله فعلی کاربر را در سشن ذخیره می‌کند تا قابلیت بازگشت به مرحله قبل فعال شود
 def push_history(user_id, state_name):
     s = get_session(user_id) or {}
     history = s.get("history", [])
@@ -24,7 +24,7 @@ def push_history(user_id, state_name):
         history.append(state_name)
     set_session(user_id, history=history)
 
-# این تابع لیست املاک پیدا شده در دیتابیس را دریافت کرده و به صورت کارت‌های گرافیکی به کاربر نمایش می‌دهد
+# ۳ این تابع لیست املاک پیدا شده در دیتابیس را دریافت کرده و به صورت کارت‌های گرافیکی به کاربر نمایش می‌دهد
 async def show_results(cid, res, is_admin):
     if not res:
         await send_msg(cid, "❌ متاسفانه ملکی با این مشخصات یافت نشد. فیلترها را تغییر دهید یا مجدداً تلاش کنید.", kb_main(is_admin))
@@ -36,3 +36,36 @@ async def show_results(cid, res, is_admin):
         else: await send_msg(cid, cap, inline_action(r["id"]))
     await send_msg(cid, "📄 برای مشاهده گزینه‌های بیشتر:", kb_next())
 
+# ۴ این تابع منطقِ بازگشت به مرحله قبلی در سشن کاربر را مدیریت می‌کند
+async def handle_back_step(cid, user_id, is_admin):
+    s = get_session(user_id) or {}
+    history = s.get("history", [])
+    if len(history) <= 1:
+        set_session(user_id, page=1, kind=None, khab=None, budje_min=None, budje_max=None, meter_min=None, meter_max=None, history=[])
+        await send_msg(cid, "به منوی اصلی بازگشتید:", kb_main(is_admin))
+        return
+    history.pop()
+    prev_state = history[-1]
+    set_session(user_id, history=history)
+    if prev_state == "main":
+        set_session(user_id, page=1, kind=None, khab=None, budje_min=None, budje_max=None, meter_min=None, meter_max=None)
+        await send_msg(cid, "نوع عملیات مورد نظرتان را انتخاب کنید:", kb_main(is_admin))
+    elif prev_state == "select_khab":
+        set_session(user_id, khab=None, budje_min=None, budje_max=None, meter_min=None, meter_max=None)
+        await send_msg(cid, "تعداد اتاق خواب مورد نظرتان را انتخاب کنید:", kb_khab())
+    elif prev_state == "select_budget":
+        set_session(user_id, budje_min=None, budje_max=None, meter_min=None, meter_max=None)
+        khab = s.get("khab")
+        await send_msg(cid, f"تنظیمات بودجه ملک {khab}ه:", kb_custom_budget(khab))
+    elif prev_state == "select_meter":
+        set_session(user_id, meter_min=None, meter_max=None)
+        await send_msg(cid, "حدود متراژ ملک را انتخاب کنید:", kb_meter())
+
+# ۵ این تابع فرآیندِ شروعِ یک جستجوی جدید را با تنظیم سشن و ثبت آمارِ کلیک استارت می‌زند
+async def handle_start_flow(cid, user_id, kind):
+    set_session(user_id, kind=kind, page=1, khab=None, budje_min=None, budje_max=None, meter_min=None, meter_max=None, history=[])
+    push_history(user_id, "main")
+    push_history(user_id, "select_khab")
+    click_field = "buy_clicks" if kind == "فروش" else "rent_clicks"
+    db["stats"].update_one({"_id": "clicks"}, {"$inc": {click_field: 1}}, upsert=True)
+    await send_msg(cid, "تعداد اتاق خواب مورد نظرتان را انتخاب کنید:", kb_khab())
