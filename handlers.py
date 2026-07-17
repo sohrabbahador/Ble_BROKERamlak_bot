@@ -1,4 +1,3 @@
-from property import handle_user_actions
 import json
 import re
 from config import db, ADMIN_ID
@@ -13,20 +12,11 @@ from core import (
 from archive import (
     parse_budget_text, push_history, show_results, show_support, 
     handle_back_step, handle_start_flow, register_alert, 
-    get_bot_stats, get_users_list
+    get_bot_stats, get_users_list,
     check_user_membership
 )
-# عضو گیری استارت و ورود به کانال 
-async def handle_user_actions(cid, user_id, txt):
-    if txt == "/start":
-        await register_user(user_id)
-        return
-
-    locked = ["🏠 خرید", "🔑 رهن و اجاره", "🔍 جستجوی سریع", "⭐ علاقه‌مندی‌ها", "🔔 تنظیم گوش به زنگ", "📞 پشتیبانی"]
-    
-    if txt in locked and not await check_user_membership(user_id):
-        await send_msg(cid, "⚠️ برای استفاده از این بخش، ابتدا در کانال ما عضو شوید:\nhttps://ble.ir/BROKER_amlak")
-        return
+# تابع اصلی از property (همان که قبلاً داشتید)
+from property import handle_user_actions
 
 async def process_bale_webhook(data: dict):
     if "callback_query" in data:
@@ -60,6 +50,7 @@ async def process_bale_webhook(data: dict):
         s = get_session(user_id) or {}
 
         if is_admin:
+            # کدهای ادمین شما سر جای خودش باقی ماند
             admin_state = db["admin_state"].find_one({"_id": cid}) or {}
             if admin_state.get("waiting_broadcast"):
                 if txt == "بازگشت به منو اصلی":
@@ -86,25 +77,42 @@ async def process_bale_webhook(data: dict):
 
         if txt == "🔙 مرحله قبل": await handle_back_step(cid, user_id, is_admin); return
         
+        # بخش بررسی عضویت و ورود به بخش‌های قفل شده
         if any(x in txt for x in ["/start", "بازگشت به منو اصلی", "🏠 خرید", "🏠 فروش", "🔑 رهن و اجاره", "💵", "خواب", "مشاهده همه", "متر"]):
-            await handle_user_actions(cid, user_id, txt, s, is_admin, set_session, push_history, 
-                                      handle_start_flow, parse_budget_text, kb_custom_budget, 
-                                      kb_meter, search_files, show_results, kb_main, send_msg)
+            locked_items = ["🏠 خرید", "🔑 رهن و اجاره", "🔍 جستجوی سریع", "⭐ علاقه‌مندی‌ها", "🔔 تنظیم گوش به زنگ", "📞 پشتیبانی"]
+            
+            if txt in locked_items and not await check_user_membership(user_id):
+                await send_msg(cid, "⚠️ برای استفاده از این بخش، ابتدا در کانال ما عضو شوید:\nhttps://ble.ir/BROKER_amlak")
+            else:
+                await handle_user_actions(cid, user_id, txt, s, is_admin, set_session, push_history, 
+                                          handle_start_flow, parse_budget_text, kb_custom_budget, 
+                                          kb_meter, search_files, show_results, kb_main, send_msg)
         
         elif txt == "⭐ علاقه‌مندی‌ها":
-            favs = list(db["favorites"].find({"user_id": user_id}))
-            if not favs: await send_msg(cid, "لیست علاقه‌مندی‌های شما خالی است.")
+            # چک کردن مجدد عضویت برای علاقه‌مندی‌ها (اگر در لیست بود)
+            if not await check_user_membership(user_id):
+                await send_msg(cid, "⚠️ ابتدا در کانال عضو شوید:\nhttps://ble.ir/BROKER_amlak")
             else:
-                for f in favs:
-                    if r := db["files"].find_one({"id": f["file_id"]}):
-                        cap = f"⭐ **ملک نشان شده**\n\n{r['text'][:300]}..."
-                        photos = json.loads(r["photos"]) if r.get("photos") else []
-                        await send_pic(cid, photos[0], cap, inline_action(r["id"])) if photos else await send_msg(cid, r["text"], inline_action(r["id"]))
+                favs = list(db["favorites"].find({"user_id": user_id}))
+                if not favs: await send_msg(cid, "لیست علاقه‌مندی‌های شما خالی است.")
+                else:
+                    for f in favs:
+                        if r := db["files"].find_one({"id": f["file_id"]}):
+                            cap = f"⭐ **ملک نشان شده**\n\n{r['text'][:300]}..."
+                            photos = json.loads(r["photos"]) if r.get("photos") else []
+                            await send_pic(cid, photos[0], cap, inline_action(r["id"])) if photos else await send_msg(cid, r["text"], inline_action(r["id"]))
         elif "پشتیبانی" in txt:
             await show_support(cid, send_msg)
-        elif "🔍 جستجوی سریع" in txt: await send_msg(cid, "کافیست نام محله یا ویژگی مورد نظرتان را بنویسید و بفرستید:")
+        elif "🔍 جستجوی سریع" in txt: 
+            if not await check_user_membership(user_id):
+                await send_msg(cid, "⚠️ ابتدا در کانال عضو شوید:\nhttps://ble.ir/BROKER_amlak")
+            else:
+                await send_msg(cid, "کافیست نام محله یا ویژگی مورد نظرتان را بنویسید و بفرستید:")
         elif "🔔 تنظیم گوش‌به‌زنگ" in txt:
-            await register_alert(cid, user_id, s)
+            if not await check_user_membership(user_id):
+                await send_msg(cid, "⚠️ ابتدا در کانال عضو شوید:\nhttps://ble.ir/BROKER_amlak")
+            else:
+                await register_alert(cid, user_id, s)
         else:
             if not is_admin:
                 res = list(db["files"].find({"text": {"$regex": txt, "$options": "i"}}).limit(5))
