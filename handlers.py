@@ -13,13 +13,6 @@ from archive import (
 )
 from property import handle_user_actions
 
-# تابع کمکی بررسی عضویت
-async def is_member(cid, user_id):
-    if not await check_user_membership(user_id):
-        await send_msg(cid, "⚠️ برای استفاده از این بخش، ابتدا در کانال ما عضو شوید:\nhttps://ble.ir/BROKER_amlak")
-        return False
-    return True
-
 async def process_bale_webhook(data: dict):
     if "callback_query" in data:
         cb = data["callback_query"]
@@ -48,6 +41,13 @@ async def process_bale_webhook(data: dict):
     if ctype == "private":
         register_user(cid, msg.get("from", {}).get("first_name", "کاربر گرامی"))
         is_admin = (user_id == ADMIN_ID)
+        
+        # قفل سراسری: به جز برای ادمین و دستورات شروع/بازگشت، همه باید عضو باشند
+        if not is_admin and txt not in ["/start", "بازگشت به منو اصلی"]:
+            if not await check_user_membership(user_id):
+                await send_msg(cid, "⚠️ برای استفاده از ربات، ابتدا در کانال اصلی ما عضو شوید:\nhttps://ble.ir/BROKER_amlak")
+                return 
+
         s = get_session(user_id) or {}
 
         # مدیریت ادمین
@@ -78,30 +78,24 @@ async def process_bale_webhook(data: dict):
 
         if txt == "🔙 مرحله قبل": await handle_back_step(cid, user_id, is_admin); return
         
-        # بخش‌های محدود شده (قفل‌دار)
-        restricted_actions = ["🏠 خرید", "🏠 فروش", "🔑 رهن و اجاره", "⭐ علاقه‌مندی‌ها", "🔔 تنظیم گوش به زنگ", "🔍 جستجوی سریع"]
-        
-        if any(item in txt for item in restricted_actions):
-            if not await is_member(cid, user_id): return
-            
-            if txt == "⭐ علاقه‌مندی‌ها":
-                favs = list(db["favorites"].find({"user_id": user_id}))
-                if not favs: await send_msg(cid, "لیست علاقه‌مندی‌های شما خالی است.")
-                else:
-                    for f in favs:
-                        if r := db["files"].find_one({"id": f["file_id"]}):
-                            cap = f"⭐ **ملک نشان شده**\n\n{r['text'][:300]}..."
-                            photos = json.loads(r["photos"]) if r.get("photos") else []
-                            await send_pic(cid, photos[0], cap, inline_action(r["id"])) if photos else await send_msg(cid, r["text"], inline_action(r["id"]))
-            elif "پشتیبانی" in txt: await show_support(cid, send_msg)
-            elif "جستجوی سریع" in txt: await send_msg(cid, "کافیست نام محله یا ویژگی مورد نظرتان را بنویسید و بفرستید:")
-            elif "🔔 تنظیم گوش‌به‌زنگ" in txt: await register_alert(cid, user_id, s)
+        # پردازش کلیه دکمه‌ها
+        if txt == "⭐ علاقه‌مندی‌ها":
+            favs = list(db["favorites"].find({"user_id": user_id}))
+            if not favs: await send_msg(cid, "لیست علاقه‌مندی‌های شما خالی است.")
             else:
+                for f in favs:
+                    if r := db["files"].find_one({"id": f["file_id"]}):
+                        cap = f"⭐ **ملک نشان شده**\n\n{r['text'][:300]}..."
+                        photos = json.loads(r["photos"]) if r.get("photos") else []
+                        await send_pic(cid, photos[0], cap, inline_action(r["id"])) if photos else await send_msg(cid, r["text"], inline_action(r["id"]))
+        elif "پشتیبانی" in txt: await show_support(cid, send_msg)
+        elif "جستجوی سریع" in txt: await send_msg(cid, "کافیست نام محله یا ویژگی مورد نظرتان را بنویسید و بفرستید:")
+        elif "🔔 تنظیم گوش‌به‌زنگ" in txt: await register_alert(cid, user_id, s)
+        else:
+            if txt in ["/start", "🏠 خرید", "🏠 فروش", "🔑 رهن و اجاره", "🏠 منوی اصلی"] or any(x in txt for x in ["متر", "خواب", "میلیون", "میلیارد"]):
                 await handle_user_actions(cid, user_id, txt, s, is_admin, set_session, push_history, 
                                           handle_start_flow, parse_budget_text, kb_custom_budget, 
                                           kb_meter, search_files, show_results, kb_main, send_msg)
-        else:
-            # جستجوی آزاد
-            if not is_admin and txt not in ["/start", "🏠 خرید", "🏠 فروش", "بازگشت به منو اصلی"]:
+            else:
                 res = list(db["files"].find({"text": {"$regex": txt, "$options": "i"}}).limit(5))
                 await show_results(cid, res, is_admin)
