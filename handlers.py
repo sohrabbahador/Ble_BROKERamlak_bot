@@ -14,9 +14,15 @@ from archive import (
 from property import handle_user_actions
 
 async def process_bale_webhook(data: dict):
+    # پردازش دکمه‌های شیشه‌ای
     if "callback_query" in data:
         cb = data["callback_query"]
         cid = cb["message"]["chat"]["id"]
+        # بررسی عضویت
+        if cid != ADMIN_ID and not await check_user_membership(cid):
+            await send_msg(cid, "⚠️ برای استفاده از ربات، ابتدا در کانال اصلی ما عضو شوید:\nhttps://ble.ir/BROKER_amlak")
+            return
+            
         if (d_val := cb.get("data", "")).startswith("fav:"):
             file_id = int(d_val.split(":")[1])
             if not db["favorites"].find_one({"user_id": cid, "file_id": file_id}):
@@ -42,7 +48,7 @@ async def process_bale_webhook(data: dict):
         register_user(cid, msg.get("from", {}).get("first_name", "کاربر گرامی"))
         is_admin = (user_id == ADMIN_ID)
         
-        # قفل سراسری: به جز برای ادمین و دستورات شروع/بازگشت، همه باید عضو باشند
+        # --- قفل سراسری ---
         if not is_admin and txt not in ["/start", "بازگشت به منو اصلی"]:
             if not await check_user_membership(user_id):
                 await send_msg(cid, "⚠️ برای استفاده از ربات، ابتدا در کانال اصلی ما عضو شوید:\nhttps://ble.ir/BROKER_amlak")
@@ -78,7 +84,7 @@ async def process_bale_webhook(data: dict):
 
         if txt == "🔙 مرحله قبل": await handle_back_step(cid, user_id, is_admin); return
         
-        # پردازش کلیه دکمه‌ها
+        # پردازش سایر بخش‌ها
         if txt == "⭐ علاقه‌مندی‌ها":
             favs = list(db["favorites"].find({"user_id": user_id}))
             if not favs: await send_msg(cid, "لیست علاقه‌مندی‌های شما خالی است.")
@@ -92,10 +98,13 @@ async def process_bale_webhook(data: dict):
         elif "جستجوی سریع" in txt: await send_msg(cid, "کافیست نام محله یا ویژگی مورد نظرتان را بنویسید و بفرستید:")
         elif "🔔 تنظیم گوش‌به‌زنگ" in txt: await register_alert(cid, user_id, s)
         else:
+            # بخش اصلی هندل کردن عملیات‌های خرید و فروش
             if txt in ["/start", "🏠 خرید", "🏠 فروش", "🔑 رهن و اجاره", "🏠 منوی اصلی"] or any(x in txt for x in ["متر", "خواب", "میلیون", "میلیارد"]):
                 await handle_user_actions(cid, user_id, txt, s, is_admin, set_session, push_history, 
                                           handle_start_flow, parse_budget_text, kb_custom_budget, 
                                           kb_meter, search_files, show_results, kb_main, send_msg)
             else:
-                res = list(db["files"].find({"text": {"$regex": txt, "$options": "i"}}).limit(5))
-                await show_results(cid, res, is_admin)
+                # جستجوی آزاد در دیتابیس (همان بخش که نگران بودی حذف شده)
+                if not is_admin:
+                    res = list(db["files"].find({"text": {"$regex": txt, "$options": "i"}}).limit(5))
+                    await show_results(cid, res, is_admin)
