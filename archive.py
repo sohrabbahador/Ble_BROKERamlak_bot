@@ -69,3 +69,12 @@ async def handle_start_flow(cid, user_id, kind):
     click_field = "buy_clicks" if kind == "فروش" else "rent_clicks"
     db["stats"].update_one({"_id": "clicks"}, {"$inc": {click_field: 1}}, upsert=True)
     await send_msg(cid, "تعداد اتاق خواب مورد نظرتان را انتخاب کنید:", kb_khab())
+
+# ۶ بخش پشتیبانی
+async def show_support(cid, send_msg):
+    await send_msg(cid, "📞 **پشتیبانی بروکر**\n\nبا کلیک روی دکمه‌های زیر تماس بگیرید یا پیام دهید:", {
+        "inline_keyboard": [
+            [{"text": "📱 09123692401", "url": "tel:+989123692401"}, {"text": "📱 09003692401", "url": "tel:+989003692401"}],
+            [{"text": "🟢 پیام در بله 💬", "url": "https://ble.ir/sohrabbahador"}]
+        ]
+    })
