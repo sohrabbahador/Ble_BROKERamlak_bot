@@ -1,3 +1,4 @@
+from property import handle_user_actions
 import json
 import re
 from config import db, ADMIN_ID
