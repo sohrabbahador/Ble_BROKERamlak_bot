@@ -52,8 +52,7 @@ def kb_meter():
 def kb_next():
     return {
         "keyboard": [
-            [{"text": "صفحه بعد"}, {"text": "🔙 مرحله قبل"}],
-            [{"text": "بازگشت به منو اصلی"}]
+            [{"text": "🔙 مرحله قبل"}, {"text": "بازگشت به منو اصلی"}]
         ],
         "resize_keyboard": True
     }
