@@ -9,6 +9,9 @@ from core import (
     get_session, set_session, register_user, save_file, search_files,
     send_msg, send_pic, get_next_sequence_value
 )
+# ایمپورت توابع ثابت از آرشیو
+from archive import parse_budget_text, push_history, show_results
+
 async def handle_back_step(cid, user_id, is_admin):
     s = get_session(user_id) or {}
     history = s.get("history", [])
@@ -98,7 +101,6 @@ async def process_bale_webhook(data: dict):
                 await send_msg(cid, "✍️ متن پیام همگانی را بفرستید:")
                 return
 
-        # فراخوانی منطقِ جدا شده
         if txt == "🔙 مرحله قبل": await handle_back_step(cid, user_id, is_admin); return
         
         if any(x in txt for x in ["/start", "بازگشت به منو اصلی", "🏠 خرید", "🏠 فروش", "🔑 رهن و اجاره", "💵", "خواب", "مشاهده همه", "متر"]):
