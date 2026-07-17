@@ -62,12 +62,3 @@ elif "متر" in txt:
     s_up = get_session(user_id) or {}
     res = search_files(s_up.get("kind"), s_up.get("khab"), s_up.get("budje_min"), s_up.get("budje_max"), s_up.get("meter_min"), s_up.get("meter_max"), s_up.get("page", 1))
     await show_results(cid, res, is_admin)
-
-elif txt == "صفحه بعد":
-    set_session(user_id, page=(s.get("page") or 1) + 1)
-    s_up = get_session(user_id) or {}
-    res = search_files(s_up.get("kind"), s_up.get("khab"), s_up.get("budje_min"), s_up.get("budje_max"), s_up.get("meter_min"), s_up.get("meter_max"), s_up.get("page", 1))
-    if not res:
-        await send_msg(cid, "🏁 به انتهای لیست فایل‌های موجود رسیدید.", kb_main(is_admin))
-    else:
-        await show_results(cid, res, is_admin)
