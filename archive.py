@@ -111,4 +111,7 @@ async def get_bot_stats():
 def get_users_list():
     users = list(db["users"].find({}, {"user_id": 1, "first_name": 1}))
     return "\n".join([f"• `{u['user_id']}` ({u.get('first_name', 'بدون نام')})" for u in users])
-    
+
+async def check_user_membership(user_id):
+    return True
+
