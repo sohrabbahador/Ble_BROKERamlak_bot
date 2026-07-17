@@ -70,11 +70,10 @@ async def handle_user_actions(cid, user_id, txt, s, is_admin, set_session, push_
         res = search_files(s.get("kind"), s.get("khab"), None, None, None, None, 1)
         await show_results(cid, res, is_admin)
 
-    # دریافت متراژ و نمایش نتایج
+    # دریافت متراژ و نمایش نتایج (بخش اصلاح شده)
     elif "متر" in txt:
         v = get_meter_range(txt)
         set_session(user_id, meter_min=v[0], meter_max=v[1])
         push_history(user_id, "select_meter")
-        s_up = s
-        res = search_files(s_up.get("kind"), s_up.get("khab"), s_up.get("budje_min"), s_up.get("budje_max"), s_up.get("meter_min"), s_up.get("meter_max"), s_up.get("page", 1))
+        res = search_files(s.get("kind"), s.get("khab"), s.get("budje_min"), s.get("budje_max"), v[0], v[1], s.get("page", 1))
         await show_results(cid, res, is_admin)
