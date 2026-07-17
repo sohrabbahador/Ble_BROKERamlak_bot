@@ -9,8 +9,8 @@ from core import (
     get_session, set_session, register_user, save_file, search_files,
     send_msg, send_pic, get_next_sequence_value
 )
-# ایمپورت توابع ثابت از آرشیو
-from archive import parse_budget_text, push_history, show_results
+# ایمپورت توابع ثابت از آرشیو (اضافه شدن show_support)
+from archive import parse_budget_text, push_history, show_results, show_support
 
 async def process_bale_webhook(data: dict):
     if "callback_query" in data:
@@ -86,12 +86,7 @@ async def process_bale_webhook(data: dict):
                         photos = json.loads(r["photos"]) if r.get("photos") else []
                         await send_pic(cid, photos[0], cap, inline_action(r["id"])) if photos else await send_msg(cid, r["text"], inline_action(r["id"]))
         elif "پشتیبانی" in txt:
-            await send_msg(cid, "📞 **پشتیبانی بروکر**\n\nبا کلیک روی دکمه‌های زیر تماس بگیرید یا پیام دهید:", {
-                "inline_keyboard": [
-                    [{"text": "📱 09123692401", "url": "tel:09123692401"}, {"text": "📱 09003692401", "url": "tel:09003692401"}],
-                    [{"text": "🟢 پیام در بله 💬", "url": "https://ble.ir/sohrabbahador"}]
-                ]
-            })
+            await show_support(cid, send_msg)
         elif "🔍 جستجوی سریع" in txt: await send_msg(cid, "کافیست نام محله یا ویژگی مورد نظرتان را بنویسید و بفرستید:")
         elif "🔔 تنظیم گوش‌به‌زنگ" in txt:
             if s and s.get("kind"):
