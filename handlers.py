@@ -12,38 +12,6 @@ from core import (
 # ایمپورت توابع ثابت از آرشیو
 from archive import parse_budget_text, push_history, show_results
 
-async def handle_back_step(cid, user_id, is_admin):
-    s = get_session(user_id) or {}
-    history = s.get("history", [])
-    if len(history) <= 1:
-        set_session(user_id, page=1, kind=None, khab=None, budje_min=None, budje_max=None, meter_min=None, meter_max=None, history=[])
-        await send_msg(cid, "به منوی اصلی بازگشتید:", kb_main(is_admin))
-        return
-    history.pop()
-    prev_state = history[-1]
-    set_session(user_id, history=history)
-    if prev_state == "main":
-        set_session(user_id, page=1, kind=None, khab=None, budje_min=None, budje_max=None, meter_min=None, meter_max=None)
-        await send_msg(cid, "نوع عملیات مورد نظرتان را انتخاب کنید:", kb_main(is_admin))
-    elif prev_state == "select_khab":
-        set_session(user_id, khab=None, budje_min=None, budje_max=None, meter_min=None, meter_max=None)
-        await send_msg(cid, "تعداد اتاق خواب مورد نظرتان را انتخاب کنید:", kb_khab())
-    elif prev_state == "select_budget":
-        set_session(user_id, budje_min=None, budje_max=None, meter_min=None, meter_max=None)
-        khab = s.get("khab")
-        await send_msg(cid, f"تنظیمات بودجه ملک {khab}ه:", kb_custom_budget(khab))
-    elif prev_state == "select_meter":
-        set_session(user_id, meter_min=None, meter_max=None)
-        await send_msg(cid, "حدود متراژ ملک را انتخاب کنید:", kb_meter())
-
-async def handle_start_flow(cid, user_id, kind):
-    set_session(user_id, kind=kind, page=1, khab=None, budje_min=None, budje_max=None, meter_min=None, meter_max=None, history=[])
-    push_history(user_id, "main")
-    push_history(user_id, "select_khab")
-    click_field = "buy_clicks" if kind == "فروش" else "rent_clicks"
-    db["stats"].update_one({"_id": "clicks"}, {"$inc": {click_field: 1}}, upsert=True)
-    await send_msg(cid, "تعداد اتاق خواب مورد نظرتان را انتخاب کنید:", kb_khab())
-
 async def process_bale_webhook(data: dict):
     if "callback_query" in data:
         cb = data["callback_query"]
