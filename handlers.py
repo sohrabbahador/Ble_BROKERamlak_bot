@@ -9,8 +9,11 @@ from core import (
     get_session, set_session, register_user, save_file, search_files,
     send_msg, send_pic, get_next_sequence_value
 )
-# ایمپورت نهایی و کامل از آرشیو
-from archive import parse_budget_text, push_history, show_results, show_support, handle_back_step, handle_start_flow
+# ایمپورت نهایی و کامل از آرشیو (اضافه شدن register_alert)
+from archive import (
+    parse_budget_text, push_history, show_results, show_support, 
+    handle_back_step, handle_start_flow, register_alert
+)
 
 async def process_bale_webhook(data: dict):
     if "callback_query" in data:
@@ -89,10 +92,7 @@ async def process_bale_webhook(data: dict):
             await show_support(cid, send_msg)
         elif "🔍 جستجوی سریع" in txt: await send_msg(cid, "کافیست نام محله یا ویژگی مورد نظرتان را بنویسید و بفرستید:")
         elif "🔔 تنظیم گوش‌به‌زنگ" in txt:
-            if s and s.get("kind"):
-                db["alerts"].insert_one({"id": get_next_sequence_value("alert_id"), "user_id": user_id, "kind": s.get("kind"), "khab": s.get("khab"), "budje_min": s.get("budje_min"), "budje_max": s.get("budje_max"), "meter_min": s.get("meter_min"), "meter_max": s.get("meter_max")})
-                await send_msg(cid, "✅ فیلترهای جستجوی شما در بخش گوش‌به‌زنگ ثبت شد!")
-            else: await send_msg(cid, "⚠️ ابتدا باید یکبار از طریق دکمه‌های منو جستجوی ملک را کامل کنید.")
+            await register_alert(cid, user_id, s)
         else:
             if not is_admin:
                 res = list(db["files"].find({"text": {"$regex": txt, "$options": "i"}}).limit(5))
