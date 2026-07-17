@@ -1,4 +1,3 @@
-# handlers.py
 import json
 import re
 from config import db, ADMIN_ID
@@ -132,52 +131,14 @@ async def process_bale_webhook(data: dict):
 
         # دکمه بازگشت به عقب
         if txt == "🔙 مرحله قبل":
-            ADMIN_STATES[user_id] = None
             await handle_back_step(cid, user_id, is_admin)
             return
-
-        if txt == "بازگشت به منو اصلی":
-            ADMIN_STATES[user_id] = None
-
-        # پنل ادمین - ارسال پیام همگانی
-        if is_admin and ADMIN_STATES.get(user_id) == "waiting_broadcast":
-            ADMIN_STATES[user_id] = None
-            if txt != "بازگشت به منو اصلی":
-                success_count = sum(1 for u in db["users"].find({}, {"user_id": 1}) if await send_msg(u["user_id"], f"📢 **پیام مدیریت:**\n\n{txt}"))
-                await send_msg(cid, f"✅ پیام با موفقیت به {success_count} کاربر ارسال شد.", kb_main(is_admin))
-            else:
-                await send_msg(cid, "عملیات لغو شد.", kb_main(is_admin))
-            return
-
-        # دریافت مبالغ عددی بودجه با تفکیک مسیر
-        if ADMIN_STATES.get(user_id) in ["waiting_min_budget_flow", "waiting_max_budget_flow"]:
-            if "مشاهده همه" in txt or txt in ["🔙 مرحله قبل", "بازگشت به منو اصلی", "💵 حداقل بودجه", "💵 حداکثر بودجه"]:
-                ADMIN_STATES[user_id] = None
-            else:
-                budget_val = parse_budget_text(txt)
-                khab_val = s.get("khab", "۱ خواب")
-                example_val = "10 میلیارد" if khab_val == "۱ خواب" else "15 میلیارد"
-
-                if budget_val == 0:
-                    await send_msg(cid, f"⚠️ لطفاً یک مبلغ معتبر وارد کنید (مثال؛ {example_val}):")
-                    return
-
-                state = ADMIN_STATES[user_id]
-                ADMIN_STATES[user_id] = None
-                if state == "waiting_min_budget_flow":
-                    set_session(user_id, budje_min=budget_val)
-                    await send_msg(cid, f"✅ حداقل بودجه ثبت شد: {budget_val:,} تومان\nحداکثر بودجه را تعیین کنید یا مستقیماً متراژ را انتخاب کنید.", kb_custom_budget(khab_val))
-                else:
-                    set_session(user_id, budje_max=budget_val)
-                    await send_msg(cid, f"✅ حداکثر بودجه ثبت شد: {budget_val:,} تومان\nحدود متراژ ملک را انتخاب کنید:", kb_meter())
-                    push_history(user_id, "select_budget")
-                return
 
         # هدایت کلیدهای منوی اصلی
         if txt in ["/start", "بازگشت به منو اصلی"]:
             set_session(user_id, page=1, kind=None, khab=None, budje_min=None, budje_max=None, meter_min=None, meter_max=None, history=[])
             push_history(user_id, "main")
-            welcome = f"سلام {first_name} عزیز 👑 منوی مدیریت:" if is_admin else f"سلام {first_name} عزیز، به ربات هوشمند خوش آمدید. 🏠"
+            welcome = f"سلام {first_name} عزیز، به ربات هوشمند خوش آمدید. 🏠"
             await send_msg(cid, welcome, kb_main(is_admin))
 
         elif txt == "🏠 خرید":
@@ -204,20 +165,17 @@ async def process_bale_webhook(data: dict):
 
         # ورود بودجه دلخواه
         elif txt == "💵 حداقل بودجه":
-            ADMIN_STATES[user_id] = "waiting_min_budget_flow"
             khab_val = s.get("khab", "۱ خواب")
             example_val = "10 میلیارد" if khab_val == "۱ خواب" else "15 میلیارد"
             await send_msg(cid, f"✍️ حداقل بودجه خود را بنویسید و ارسال کنید:\n(مثال؛ {example_val}):")
 
         elif txt == "💵 حداکثر بودجه":
-            ADMIN_STATES[user_id] = "waiting_max_budget_flow"
             khab_val = s.get("khab", "۱ خواب")
             example_val = "20 میلیارد" if khab_val == "۱ خواب" else "100 میلیارد"
             await send_msg(cid, f"✍️ حداکثر بودجه خود را بفرستید:\n(مثال؛ {example_val}):")
 
         # دکمه‌های «مشاهده همه»
         elif "📋 مشاهده همه" in txt or "مشاهده همه" in txt:
-            ADMIN_STATES[user_id] = None
             khab_val = s.get("khab", "۱ خواب")
             res = search_files(s.get("kind"), khab_val, None, None, None, None, 1)
             await show_results(cid, res, is_admin)
@@ -257,21 +215,7 @@ async def process_bale_webhook(data: dict):
             else:
                 await send_msg(cid, "⚠️ ابتدا باید یکبار از طریق دکمه‌های منو جستجوی ملک را کامل کنید.")
 
-        # آمار ادمین
-        elif is_admin and txt == "📊 آمار ربات":
-            stats = db["stats"].find_one({"_id": "clicks"}) or {}
-            await send_msg(cid, f"📊 **آمار:**\n👤 کل کاربران: {db['users'].count_documents({})}\n🏠 کل املاک: {db['files'].count_documents({})}\n🔍 کلیک خرید: {stats.get('buy_clicks', 0)}\n🔑 کلیک رهن: {stats.get('rent_clicks', 0)}")
-
-        elif is_admin and txt == "👥 لیست کاربران":
-            users_list = "\n".join([f"• `{u['user_id']}` ({u.get('first_name', 'بدون نام')})" for u in db["users"].find({}, {"user_id": 1, "first_name": 1})])
-            await send_msg(cid, f"👥 **کاربران:**\n\n{users_list}" if users_list else "کاربری یافت نشد.")
-
-        elif is_admin and txt == "📢 ارسال پیام همگانی":
-            ADMIN_STATES[user_id] = "waiting_broadcast"
-            await send_msg(cid, "✍️ متن پیام همگانی را بفرستید:", {"keyboard": [[{"text": "بازگشت به منو اصلی"}]], "resize_keyboard": True})
-
         # جستجوی متنی آزاد سراسری
         else:
             res = list(db["files"].find({"text": {"$regex": txt, "$options": "i"}}).limit(5))
             await show_results(cid, res, is_admin)
-
