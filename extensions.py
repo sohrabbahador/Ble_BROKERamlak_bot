@@ -6,7 +6,7 @@ from config import ADMIN_ID, db
 # پیکربندی لاگ
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 
-# --- پنل مدیریت (یکپارچه شده و تمیز) ---
+# --- پنل مدیریت ---
 
 async def admin_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """نمایش پنل مدیریت"""
@@ -28,7 +28,7 @@ async def admin_text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
     if user_id != ADMIN_ID:
         return
 
-    # ۱. مدیریت ارسال پیام همگانی (وضعیت پایدار در دیتابیس)
+    # ۱. مدیریت ارسال پیام همگانی
     admin_state = db["admin_state"].find_one({"_id": user_id}) or {}
     
     if admin_state.get("waiting_broadcast"):
@@ -46,14 +46,14 @@ async def admin_text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
             await update.message.reply_text(f"✅ پیام با موفقیت به {success_count} کاربر ارسال شد.", reply_markup=ReplyKeyboardRemove())
         return
 
-    # ۲. آمار ادمین (اتصال به دیتابیس)
+    # ۲. آمار ادمین
     if txt == "📊 آمار ربات":
         stats = db["stats"].find_one({"_id": "clicks"}) or {}
         await update.message.reply_text(
             f"📊 **آمار:**\n👤 کل کاربران: {db['users'].count_documents({})}\n"
             f"🏠 کل املاک: {db['files'].count_documents({})}\n"
             f"🔍 کلیک خرید: {stats.get('buy_clicks', 0)}\n"
-            f"🔑 کلیک رهن: {stats.get('mortgage_clicks', 0)}"
+            f"🔑 کلیک رهن: {stats.get('rent_clicks', 0)}"
         )
 
     # ۳. لیست کاربران
@@ -81,5 +81,5 @@ async def track_section_click(update: Update, context: ContextTypes.DEFAULT_TYPE
 # --- ثبت هندلرها ---
 def register_extension_handlers(application):
     application.add_handler(CommandHandler("admin", admin_menu))
-    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, admin_text_handler))
+    application.add_handler(MessageHandler(filters.TEXT & (filters.Regex("^(📊 آمار ربات|📢 ارسال پیام همگانی|👥 لیست کاربران|بازگشت به منو اصلی)$")), admin_text_handler))
     application.add_handler(CallbackQueryHandler(track_section_click, pattern="^(buy_section|rent_section|mortgage_section)$"))
