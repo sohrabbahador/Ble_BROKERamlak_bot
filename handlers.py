@@ -14,6 +14,7 @@ from archive import (
     parse_budget_text, push_history, show_results, show_support, 
     handle_back_step, handle_start_flow, register_alert, 
     get_bot_stats, get_users_list
+    check_user_membership
 )
 # عضو گیری استارت و ورود به کانال 
 async def handle_user_actions(cid, user_id, txt):
