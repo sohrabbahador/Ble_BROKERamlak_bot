@@ -9,8 +9,8 @@ from core import (
     get_session, set_session, register_user, save_file, search_files,
     send_msg, send_pic, get_next_sequence_value
 )
-# ایمپورت توابع ثابت از آرشیو (اضافه شدن show_support)
-from archive import parse_budget_text, push_history, show_results, show_support
+# ایمپورت نهایی و کامل از آرشیو
+from archive import parse_budget_text, push_history, show_results, show_support, handle_back_step, handle_start_flow
 
 async def process_bale_webhook(data: dict):
     if "callback_query" in data:
