@@ -79,3 +79,20 @@ async def show_support(cid, send_msg):
             [{"text": "🟢 پیام در بله 💬", "url": "https://ble.ir/sohrabbahador"}]
         ]
     })
+# ۷ تابع گوش به زنگ 🔔
+async def register_alert(cid, user_id, s):
+    if s and s.get("kind"):
+        db["alerts"].insert_one({
+            "id": get_next_sequence_value("alert_id"), 
+            "user_id": user_id, 
+            "kind": s.get("kind"), 
+            "khab": s.get("khab"), 
+            "budje_min": s.get("budje_min"), 
+            "budje_max": s.get("budje_max"), 
+            "meter_min": s.get("meter_min"), 
+            "meter_max": s.get("meter_max")
+        })
+        await send_msg(cid, "✅ فیلترهای جستجوی شما در بخش گوش‌به‌زنگ ثبت شد!")
+    else: 
+        await send_msg(cid, "⚠️ ابتدا باید یکبار از طریق دکمه‌های منو جستجوی ملک را کامل کنید.")
+        
