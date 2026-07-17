@@ -235,16 +235,6 @@ async def process_bale_webhook(data: dict):
             res = search_files(s_updated.get("kind"), s_updated.get("khab"), s_updated.get("budje_min"), s_updated.get("budje_max"), s_updated.get("meter_min"), s_updated.get("meter_max"), s_updated.get("page", 1))
             await show_results(cid, res, is_admin)
 
-        elif txt == "صفحه بعد":
-            next_page = (s.get("page") or 1) + 1
-            set_session(user_id, page=next_page)
-            s_updated = get_session(user_id) or {}
-            res = search_files(s_updated.get("kind"), s_updated.get("khab"), s_updated.get("budje_min"), s_updated.get("budje_max"), s_updated.get("meter_min"), s_updated.get("meter_max"), s_updated.get("page", 1))
-            if not res:
-                await send_msg(cid, "🏁 به انتهای لیست فایل‌های موجود رسیدید.", kb_main(is_admin))
-            else:
-                await show_results(cid, res, is_admin)
-
         # علاقه‌مندی‌ها
         elif txt == "⭐ علاقه‌مندی‌ها":
             favs = list(db["favorites"].find({"user_id": user_id}))
