@@ -10,9 +10,6 @@ from core import (
     send_msg, send_pic, get_next_sequence_value
 )
 
-ADMIN_STATES = {}
-
-
 def parse_budget_text(text: str) -> int:
     """تبدیل متن‌های بودجه به عدد صحیح ریاضی (تومان) با پشتیبانی کامل از عدد فارسی و انگلیسی"""
     persian_to_english = str.maketrans('۰۱۲۳۴۵۶۷۸۹', '0123456789')
