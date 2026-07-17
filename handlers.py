@@ -10,7 +10,7 @@ from core import (
     send_msg, send_pic, get_next_sequence_value
 )
 
-# --- تمام توابع شما دقیقاً مثل قبل ---
+# تمام توابع دقیقاً سر جای خود
 def parse_budget_text(text: str) -> int:
     persian_to_english = str.maketrans('۰۱۲۳۴۵۶۷۸۹', '0123456789')
     text = text.translate(persian_to_english).lower().strip()
@@ -71,7 +71,6 @@ async def handle_start_flow(cid, user_id, kind):
     db["stats"].update_one({"_id": "clicks"}, {"$inc": {click_field: 1}}, upsert=True)
     await send_msg(cid, "تعداد اتاق خواب مورد نظرتان را انتخاب کنید:", kb_khab())
 
-# --- پردازشگر اصلی ادغام شده ---
 async def process_bale_webhook(data: dict):
     if "callback_query" in data:
         cb = data["callback_query"]
@@ -103,7 +102,6 @@ async def process_bale_webhook(data: dict):
         is_admin = (user_id == ADMIN_ID)
         s = get_session(user_id) or {}
 
-        # 1. بخش ادمین (دقیقاً همان منطق extensions)
         if is_admin:
             admin_state = db["admin_state"].find_one({"_id": cid}) or {}
             if admin_state.get("waiting_broadcast"):
@@ -130,46 +128,14 @@ async def process_bale_webhook(data: dict):
                 await send_msg(cid, "✍️ متن پیام همگانی را بفرستید:")
                 return
 
-        # 2. بخش کاربران (دقیقاً همان منطق قبلی)
+        # فراخوانی منطقِ جدا شده
         if txt == "🔙 مرحله قبل": await handle_back_step(cid, user_id, is_admin); return
-        if txt in ["/start", "بازگشت به منو اصلی"]:
-            set_session(user_id, page=1, kind=None, khab=None, budje_min=None, budje_max=None, meter_min=None, meter_max=None, history=[])
-            push_history(user_id, "main")
-            welcome = f"سلام {first_name} عزیز، به ربات هوشمند خوش آمدید. 🏠"
-            await send_msg(cid, welcome, kb_main(is_admin))
-        elif txt == "🏠 خرید": await handle_start_flow(cid, user_id, "فروش")
-        elif txt == "🔑 رهن و اجاره": await handle_start_flow(cid, user_id, "رهن_اجاره")
-        elif "پشتیبانی" in txt:
-            await send_msg(cid, "📞 **پشتیبانی بروکر**\n\nبا کلیک روی دکمه‌های زیر تماس بگیرید یا پیام دهید:", {
-                "inline_keyboard": [
-                    [{"text": "📱 09123692401", "url": "tel:09123692401"}, {"text": "📱 09003692401", "url": "tel:09003692401"}],
-                    [{"text": "🟢 پیام در بله 💬", "url": "https://ble.ir/sohrabbahador"}]
-                ]
-            })
-        elif "خواب" in txt and "مشاهده" not in txt:
-            clean_khab = txt.replace(" ", "")
-            final_khab = "۴ خواب و بیشتر" if ("۴" in clean_khab or "بیشتر" in clean_khab) else txt.strip()
-            set_session(user_id, khab=final_khab)
-            push_history(user_id, "select_khab")
-            await send_msg(cid, f"بودجه مورد نظر برای {final_khab} را تعیین کنید یا همه فایل‌ها را ببینید:", kb_custom_budget(final_khab))
-        elif txt == "💵 حداقل بودجه":
-            khab_val = s.get("khab", "۱ خواب")
-            await send_msg(cid, f"✍️ حداقل بودجه خود را بنویسید و ارسال کنید:\n(مثال؛ {'10 میلیارد' if khab_val == '۱ خواب' else '15 میلیارد'}):")
-        elif txt == "💵 حداکثر بودجه":
-            khab_val = s.get("khab", "۱ خواب")
-            await send_msg(cid, f"✍️ حداکثر بودجه خود را بفرستید:\n(مثال؛ {'20 میلیارد' if khab_val == '۱ خواب' else '100 میلیارد'}):")
-        elif "📋 مشاهده همه" in txt or "مشاهده همه" in txt:
-            khab_val = s.get("khab", "۱ خواب")
-            res = search_files(s.get("kind"), khab_val, None, None, None, None, 1)
-            await show_results(cid, res, is_admin)
-        elif "متر" in txt:
-            m_map = {"کمتر از ۱۰۰ متر": (0, 100), "۱۰۰ تا ۱۵۰ متر": (100, 150), "۱۵۰ تا ۲۰۰ متر": (150, 200), "بیشتر از ۲۰۰ متر": (200, 999)}
-            v = m_map.get(txt, (0, 999))
-            set_session(user_id, meter_min=v[0], meter_max=v[1])
-            push_history(user_id, "select_meter")
-            s_up = get_session(user_id) or {}
-            res = search_files(s_up.get("kind"), s_up.get("khab"), s_up.get("budje_min"), s_up.get("budje_max"), s_up.get("meter_min"), s_up.get("meter_max"), s_up.get("page", 1))
-            await show_results(cid, res, is_admin)
+        
+        if any(x in txt for x in ["/start", "بازگشت به منو اصلی", "🏠 خرید", "🏠 فروش", "🔑 رهن و اجاره", "💵", "خواب", "مشاهده همه", "متر"]):
+            await handle_user_actions(cid, user_id, txt, s, is_admin, set_session, push_history, 
+                                      handle_start_flow, parse_budget_text, kb_custom_budget, 
+                                      kb_meter, search_files, show_results, kb_main, send_msg)
+        
         elif txt == "⭐ علاقه‌مندی‌ها":
             favs = list(db["favorites"].find({"user_id": user_id}))
             if not favs: await send_msg(cid, "لیست علاقه‌مندی‌های شما خالی است.")
@@ -179,6 +145,13 @@ async def process_bale_webhook(data: dict):
                         cap = f"⭐ **ملک نشان شده**\n\n{r['text'][:300]}..."
                         photos = json.loads(r["photos"]) if r.get("photos") else []
                         await send_pic(cid, photos[0], cap, inline_action(r["id"])) if photos else await send_msg(cid, r["text"], inline_action(r["id"]))
+        elif "پشتیبانی" in txt:
+            await send_msg(cid, "📞 **پشتیبانی بروکر**\n\nبا کلیک روی دکمه‌های زیر تماس بگیرید یا پیام دهید:", {
+                "inline_keyboard": [
+                    [{"text": "📱 09123692401", "url": "tel:09123692401"}, {"text": "📱 09003692401", "url": "tel:09003692401"}],
+                    [{"text": "🟢 پیام در بله 💬", "url": "https://ble.ir/sohrabbahador"}]
+                ]
+            })
         elif "🔍 جستجوی سریع" in txt: await send_msg(cid, "کافیست نام محله یا ویژگی مورد نظرتان را بنویسید و بفرستید:")
         elif "🔔 تنظیم گوش‌به‌زنگ" in txt:
             if s and s.get("kind"):
