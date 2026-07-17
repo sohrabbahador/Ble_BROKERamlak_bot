@@ -61,7 +61,14 @@ def inline_action(fid):
     share_url = f"https://ble.ir/share/url?url=https://t.me/BrokerBot?start=file_{fid}"
     return {
         "inline_keyboard": [
-            [{"text": "🚀 مشاهده در کانال", "url": MAIN_CHANNEL_URL}],
-            [{"text": "⭐ افزودن به علاقه‌مندی", "callback_data": f"fav:{fid}"}, {"text": "🔗 اشتراک‌گذاری", "url": share_url}]
+            [
+                {"text": "🚀 خرید و فروش", "url": "https://ble.ir/broker_amlak"},
+                {"text": "🚀 رهن و اجاره", "url": "https://ble.ir/BROKER_amlak2"}
+            ],
+            [
+                {"text": "⭐ افزودن به علاقه‌مندی", "callback_data": f"fav:{fid}"}, 
+                {"text": "🔗 اشتراک‌گذاری", "url": share_url}
+            ]
         ]
     }
+
