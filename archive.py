@@ -1,9 +1,8 @@
-# archive.py
-
 import json
 import re
-from config import db
-from core import get_session, set_session, send_msg, send_pic
+import httpx
+from config import db, TOKEN, MAIN_CHANNEL_URL
+from core import get_session, set_session, send_msg, send_pic, get_next_sequence_value
 from keyboards import kb_main, kb_next, inline_action, kb_khab, kb_custom_budget, kb_meter
 
 # ۱ این تابع متن‌های حاوی مبالغ فارسی یا انگلیسی را به عدد خالص تبدیل می‌کند
@@ -112,6 +111,14 @@ def get_users_list():
     users = list(db["users"].find({}, {"user_id": 1, "first_name": 1}))
     return "\n".join([f"• `{u['user_id']}` ({u.get('first_name', 'بدون نام')})" for u in users])
 
+# ۱۰ تابع بررسی عضویت در کانال اصلی
 async def check_user_membership(user_id):
-    return True
-
+    channel_id = "@" + MAIN_CHANNEL_URL.split("/")[-1]
+    api_url = f"https://tapi.bale.ai/bot{TOKEN}/getChatMember"
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.post(api_url, json={"chat_id": channel_id, "user_id": user_id})
+            data = response.json()
+            return data.get("ok") and data["result"]["status"] in ["member", "administrator", "creator"]
+    except:
+        return False
