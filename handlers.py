@@ -9,10 +9,11 @@ from core import (
     get_session, set_session, register_user, save_file, search_files,
     send_msg, send_pic, get_next_sequence_value
 )
-# ایمپورت نهایی و کامل از آرشیو (اضافه شدن register_alert)
+# ایمپورت تمامی توابع از آرشیو
 from archive import (
     parse_budget_text, push_history, show_results, show_support, 
-    handle_back_step, handle_start_flow, register_alert
+    handle_back_step, handle_start_flow, register_alert, 
+    get_bot_stats, get_users_list
 )
 
 async def process_bale_webhook(data: dict):
@@ -60,11 +61,10 @@ async def process_bale_webhook(data: dict):
                     await send_msg(cid, f"✅ پیام با موفقیت به {success_count} کاربر ارسال شد.")
                 return
             if txt == "📊 آمار ربات":
-                stats = db["stats"].find_one({"_id": "clicks"}) or {}
-                await send_msg(cid, f"📊 **آمار:**\n👤 کل کاربران: {db['users'].count_documents({})}\n🏠 کل املاک: {db['files'].count_documents({})}\n🔍 کلیک خرید: {stats.get('buy_clicks', 0)}\n🔑 کلیک رهن: {stats.get('rent_clicks', 0)}")
+                await send_msg(cid, await get_bot_stats())
                 return
             elif txt == "👥 لیست کاربران":
-                users_list = "\n".join([f"• `{u['user_id']}` ({u.get('first_name', 'بدون نام')})" for u in db["users"].find({}, {"user_id": 1, "first_name": 1})])
+                users_list = get_users_list()
                 await send_msg(cid, f"👥 **کاربران:**\n\n{users_list}" if users_list else "کاربری یافت نشد.")
                 return
             elif txt == "📢 ارسال پیام همگانی":
