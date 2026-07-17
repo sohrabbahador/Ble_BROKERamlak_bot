@@ -96,3 +96,19 @@ async def register_alert(cid, user_id, s):
     else: 
         await send_msg(cid, "⚠️ ابتدا باید یکبار از طریق دکمه‌های منو جستجوی ملک را کامل کنید.")
         
+# ۸ این تابع آمار کلی ربات را استخراج می‌کند
+async def get_bot_stats():
+    stats = db["stats"].find_one({"_id": "clicks"}) or {}
+    return (
+        f"📊 **آمار:**\n"
+        f"👤 کل کاربران: {db['users'].count_documents({})}\n"
+        f"🏠 کل املاک: {db['files'].count_documents({})}\n"
+        f"🔍 کلیک خرید: {stats.get('buy_clicks', 0)}\n"
+        f"🔑 کلیک رهن: {stats.get('rent_clicks', 0)}"
+    )
+
+# ۹ این تابع لیست کاربران را به صورت فرمت شده برمی‌گرداند
+def get_users_list():
+    users = list(db["users"].find({}, {"user_id": 1, "first_name": 1}))
+    return "\n".join([f"• `{u['user_id']}` ({u.get('first_name', 'بدون نام')})" for u in users])
+    
