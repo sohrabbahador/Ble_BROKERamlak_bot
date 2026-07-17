@@ -276,10 +276,5 @@ async def process_bale_webhook(data: dict):
         # جستجوی متنی آزاد سراسری
         else:
             res = list(db["files"].find({"text": {"$regex": txt, "$options": "i"}}).limit(5))
-            if not res:
-                await send_msg(cid, "❌ موردی با این مشخصات یافت نشد.", kb_main(is_admin))
-            else:
-                for r in res:
-                    cap = f"🔍 **نتیجه جستجو**\n\n{r['text'][:300]}..."
-                    photos = json.loads(r["photos"]) if r.get("photos") else []
-                    await send_pic(cid, photos[0], cap, inline_action(r["id"])) if photos else await send_msg(cid, cap, inline_action(r["id"]))
+            await show_results(cid, res, is_admin)
+
