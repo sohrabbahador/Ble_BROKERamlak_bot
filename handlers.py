@@ -129,6 +129,13 @@ async def process_bale_webhook(data: dict):
         is_admin = (user_id == ADMIN_ID)
         s = get_session(user_id) or {}
 
+        # --- اتصال به پنل مدیریت در اکستنشن ---
+        from extensions import handle_admin_commands
+        if is_admin:
+            if await handle_admin_commands(cid, txt):
+                return
+        # -------------------------------------
+
         # دکمه بازگشت به عقب
         if txt == "🔙 مرحله قبل":
             await handle_back_step(cid, user_id, is_admin)
