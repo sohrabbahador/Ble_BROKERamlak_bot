@@ -9,7 +9,7 @@ from core import (
 from archive import (
     parse_budget_text, push_history, show_results, show_support, 
     handle_back_step, handle_start_flow, register_alert, 
-    get_bot_stats, get_users_list, handle_membership_flow # اضافه شد
+    get_bot_stats, get_users_list, handle_membership_flow, send_welcome_message
 )
 from property import handle_user_actions
 
@@ -64,19 +64,19 @@ async def process_bale_webhook(data: dict):
 
         if chat_type == "private":
             
-            # انتقال کل فرآیند عضویت به archive.py
+            # ۱. بررسی عضویت (سد دفاعی)
             if await handle_membership_flow(cid, user_id, is_admin, cb_data, txt, send_msg, MAIN_CHANNEL_URL, kb_main, is_member):
                 return
 
-            # ب) استارت آزاد
+            # ۲. استارت آزاد (بعد از سد دفاعی بررسی می‌شود)
             if txt == "/start":
                 name = msg_data.get("from", {}).get("first_name", "کاربر") if msg_data else "کاربر"
                 register_user(cid, name)
-                welcome_text = "💐 به خدمات ملکی هوشمند « بروکر املاک » خوش آمدید ؛\n\n🚀 کانال اصلی:\n" + MAIN_CHANNEL_URL
-                await send_msg(cid, welcome_text, kb_main(is_admin))
+                # فراخوانی تابع خوش‌آمدگویی از آرشیو
+                await send_welcome_message(cid, name, is_admin, send_msg, MAIN_CHANNEL_URL, kb_main)
                 return
                 
-            # د) بقیه پردازش‌ها (ادمین و کاربر عضو شده)
+            # ۳. بقیه پردازش‌ها
             if cb_data and txt.startswith("fav:"):
                 return
 
