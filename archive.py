@@ -112,12 +112,11 @@ def get_users_list():
 
 # ۱۰ مدیریت عضویت (سد دفاعی کامل در آرشیو)
 async def handle_membership_flow(cid, user_id, is_admin, cb_data, txt, send_msg, MAIN_CHANNEL_URL, kb_main, is_member_func):
-    """مدیریت کامل عضویت بدون نیاز به منطقِ اضافه در هندلر"""
-    
-    # اگر کاربر عضو نیست (سد دفاعی)
+    """مدیریت عضویت"""
     if not is_admin and not await is_member_func(user_id):
         if cb_data and txt == "بررسی عضویت":
             if await is_member_func(user_id):
+                # اصلاحیه: اینجا kb_main(is_admin) مستقیماً کیبورد را برمی‌گرداند
                 await send_msg(cid, "✅ عضویت شما تایید شد.", kb_main(is_admin))
             else:
                 await send_msg(cid, "❌ هنوز عضو نشدید...", {"inline_keyboard": [[{"text": "🚀 عضویت در کانال", "url": MAIN_CHANNEL_URL}], [{"text": "✅ عضو شدم", "callback_data": "بررسی عضویت"}]]})
@@ -127,6 +126,7 @@ async def handle_membership_flow(cid, user_id, is_admin, cb_data, txt, send_msg,
         return True
 
     return False
+    
 
 # ۱۱ تابع ارسال پیام خوش‌آمدگویی
 async def send_welcome_message(cid, name, is_admin, send_msg, MAIN_CHANNEL_URL, kb_main):
