@@ -9,7 +9,8 @@ from core import (
 from archive import (
     parse_budget_text, push_history, show_results, show_support, 
     handle_back_step, handle_start_flow, register_alert, 
-    get_bot_stats, get_users_list, handle_membership_flow, send_welcome_message
+    get_bot_stats, get_users_list, handle_membership_flow, send_welcome_message,
+    add_to_favorites, show_favorites, remove_from_favorites
 )
 from property import handle_user_actions
 
@@ -63,7 +64,15 @@ async def process_bale_webhook(data: dict):
             if await handle_membership_flow(cid, user_id, is_admin, cb_data, txt, send_msg, MAIN_CHANNEL_URL, kb_main, is_member):
                 return
                 
-            if cb_data and txt.startswith("fav:"): return
+            # مدیریت دکمه‌های شیشه‌ای (علاقه‌مندی‌ها و حذف)
+            if cb_data and txt.startswith("fav:"):
+                prop_id = int(txt.split(":")[1])
+                await add_to_favorites(cid, user_id, prop_id, send_msg)
+                return
+            if cb_data and txt.startswith("del_fav:"):
+                prop_id = int(txt.split(":")[1])
+                await remove_from_favorites(cid, user_id, prop_id, send_msg)
+                return
 
             s = get_session(user_id) or {}
             if is_admin:
@@ -86,6 +95,7 @@ async def process_bale_webhook(data: dict):
                         await send_msg(cid, f"✅ پیام به {success} کاربر ارسال شد."); return
 
             if txt == "🔙 مرحله قبل": await handle_back_step(cid, user_id, is_admin)
+            elif txt == "⭐ علاقه‌مندی‌ها": await show_favorites(cid, user_id, send_msg, is_admin)
             elif "پشتیبانی" in txt: await show_support(cid, send_msg)
             elif "جستجوی سریع" in txt: await send_msg(cid, "نام محله یا ویژگی را بفرستید:")
             elif "🔔 تنظیم گوش‌به‌زنگ" in txt: await register_alert(cid, user_id, s)
