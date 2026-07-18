@@ -134,3 +134,9 @@ async def handle_membership_flow(cid, user_id, is_admin, cb_data, txt, send_msg,
         return True # هندل شد
 
     return False # نیاز به ادامه پردازش است
+
+# ۱۱ تابع ارسال پیام خوش‌آمدگویی
+async def send_welcome_message(cid, name, is_admin, send_msg, MAIN_CHANNEL_URL, kb_main):
+    """ارسال متن خوش‌آمدگویی"""
+    welcome_text = f"💐 به خدمات ملکی هوشمند « بروکر املاک » خوش آمدید ؛\n\n🚀 کانال اصلی:\n{MAIN_CHANNEL_URL}"
+    await send_msg(cid, welcome_text, kb_main(is_admin))
