@@ -69,12 +69,13 @@ async def process_bale_webhook(data: dict):
         # --- ۲. تمام کارهای دیگر فقط در پی‌وی (private) انجام شود ---
         if chat_type == "private":
             
-            # الف) هندل کردن دکمه تایید عضویت
-            if cb_data and txt == "بررسی عضویت":
-                if await is_member(user_id):
-                    await send_msg(cid, "✅ عضویت شما تایید شد.")
-                else:
-                    await send_msg(cid, "❌ هنوز عضو نشدید...", {
+        # الف) هندل کردن دکمه تایید عضویت
+        if cb_data and txt == "بررسی عضویت":
+          if await is_member(user_id):
+              # اینجا kb_main(is_admin) را اضافه کردیم تا دکمه‌ها نمایش داده شوند
+             await send_msg(cid, "✅ عضویت شما تایید شد.", kb_main(is_admin))
+         else:
+                 await send_msg(cid, "❌ هنوز عضو نشدید...", {
                         "inline_keyboard": [[{"text": "🚀 عضویت در کانال", "url": MAIN_CHANNEL_URL}],
                                             [{"text": "✅ عضو شدم", "callback_data": "بررسی عضویت"}]]
                     })
