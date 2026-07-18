@@ -44,83 +44,110 @@ async def process_bale_webhook(data: dict):
         
         if cb_data:
             cid = cb_data["message"]["chat"]["id"]
+            chat_type = cb_data["message"]["chat"]["type"]  # دریافت نوع چت در کال‌بک
             txt = cb_data.get("data", "") 
         elif msg_data:
-            cid = msg_data.get("chat", {}).get("id")
+            chat = msg_data.get("chat", {})
+            cid = chat.get("id")
+            chat_type = chat.get("type")  # دریافت نوع چت در پیام
             txt = msg_data.get("text", "") or msg_data.get("caption", "")
-        else: return
-
-        if not cid: return
-        is_admin = (cid == ADMIN_ID)
-
-        # --- ۱. هندل کردن تایید عضویت (Callback) ---
-        if cb_data and txt == "بررسی عضویت":
-            if await is_member(cid):
-                await send_msg(cid, "✅ تایید شد! حالا می‌توانید از تمامی امکانات ربات استفاده کنید.")
-            else:
-                await send_msg(cid, "❌ هنوز عضو کانال نشدید. لطفاً ابتدا عضو شوید:", {
-                    "inline_keyboard": [[{"text": "📢 عضویت در کانال", "url": MAIN_CHANNEL_URL}], 
-                                        [{"text": "✅ عضو شدم (تایید)", "callback_data": "بررسی عضویت"}]]
-                })
+        else:
             return
 
-        # --- ۲. دستور استارت (همیشه آزاد) ---
-        if txt == "/start":
-            name = msg_data.get("from", {}).get("first_name", "کاربر") if msg_data else "کاربر"
-            register_user(cid, name)
-            await send_msg(cid, "به خدمات ملکی هوشمند بروکر املاک خوش آمدید 💐 ! برای شروع، یکی از گزینه‌ها را انتخاب کنید:", kb_main(is_admin))
+        if not cid:
             return
+        user_id = cid
+        is_admin = (user_id == ADMIN_ID)
 
-        # --- ۳. قفل سخت‌گیرانه (برای هر کلیدی به جز استارت) ---
-        if not is_admin:
-            member_ok = await is_member(cid)
-            if not member_ok:
-                await send_msg(cid, "⚠️ **دسترسی محدود است!**\nلطفاً روی لینک عضو شوید، سپس به اینجا بازگردید و دکمه تایید را بزنید :", {
-                    "inline_keyboard": [
-                        [{"text": "📢 عضویت در کانال", "url": MAIN_CHANNEL_URL}],
-                        [{"text": "✅ عضو شدم (تایید)", "callback_data": "بررسی عضویت"}]
-                    ]
-                })
+        # --- ۱. اگر پیام در کانال بود، فقط ذخیره فایل انجام شود و تمام ---
+        if chat_type == "channel":
+            if "photo" in msg_data and "موجود" in txt:
+                photos = [msg_data["photo"][-1]["file_id"]]
+                await save_file(txt, photos)
+            return  # خروج فوری؛ ربات نباید در کانال هیچ پاسخی بدهد
+
+        # --- ۲. تمام کارهای دیگر فقط در پی‌وی (private) انجام شود ---
+        if chat_type == "private":
+            
+            # الف) هندل کردن دکمه تایید عضویت
+            if cb_data and txt == "بررسی عضویت":
+                if await is_member(user_id):
+                    await send_msg(cid, "✅ عضویت شما تایید شد.")
+                else:
+                    await send_msg(cid, "❌ هنوز عضو نشدید...", {
+                        "inline_keyboard": [[{"text": "📢 عضویت در کانال", "url": MAIN_CHANNEL_URL}],
+                                            [{"text": "✅ عضو شدم", "callback_data": "بررسی عضویت"}]]
+                    })
                 return
 
-        # --- ۴. پردازش دستورات (فقط برای اعضا یا ادمین) ---
-        s = get_session(cid) or {}
-        
-        if is_admin:
-            # بخش مدیریت ادمین
-            if txt == "📊 آمار ربات": await send_msg(cid, await get_bot_stats()); return
-            elif txt == "👥 لیست کاربران": await send_msg(cid, get_users_list()); return
-            elif txt == "📢 ارسال پیام همگانی":
-                db["admin_state"].update_one({"_id": cid}, {"$set": {"waiting_broadcast": True}}, upsert=True)
-                await send_msg(cid, "✍️ متن پیام را بفرستید:"); return
-            
-            admin_state = db["admin_state"].find_one({"_id": cid}) or {}
-            if admin_state.get("waiting_broadcast"):
-                if txt == "بازگشت به منو اصلی":
-                    db["admin_state"].update_one({"_id": cid}, {"$set": {"waiting_broadcast": False}}, upsert=True)
-                    await send_msg(cid, "لغو شد."); return
-                else:
-                    success = 0
-                    for u in db["users"].find({}, {"user_id": 1}):
-                        if await send_msg(u["user_id"], f"📢 **پیام مدیریت:**\n\n{txt}"): success += 1
-                    db["admin_state"].update_one({"_id": cid}, {"$set": {"waiting_broadcast": False}}, upsert=True)
-                    await send_msg(cid, f"✅ پیام به {success} کاربر ارسال شد."); return
+            # ب) استارت آزاد
+            if txt == "/start":
+                name = msg_data.get("from", {}).get("first_name", "کاربر") if msg_data else "کاربر"
+                register_user(cid, name)
+                await send_msg(cid, "خوش آمدید!", kb_main(is_admin))
+                return
 
-        # دستورات عمومی
-        if txt == "🔙 مرحله قبل": await handle_back_step(cid, cid, is_admin); return
-        elif "پشتیبانی" in txt: await show_support(cid, send_msg); return
-        elif "جستجوی سریع" in txt: await send_msg(cid, "نام محله یا ویژگی را بفرستید:"); return
-        elif "🔔 تنظیم گوش‌به‌زنگ" in txt: await register_alert(cid, cid, s); return
-        
-        # هندلر اصلی املاک
-        elif txt in ["🏠 خرید", "🏠 فروش", "🔑 رهن و اجاره", "🏠 منوی اصلی"] or any(x in txt for x in ["متر", "خواب", "میلیون", "میلیارد"]):
-            await handle_user_actions(cid, cid, txt, s, is_admin, set_session, push_history, 
-                                      handle_start_flow, parse_budget_text, kb_custom_budget, 
-                                      kb_meter, search_files, show_results, kb_main, send_msg)
-        else:
+            # ج) سد دفاعی عضویت (فقط برای کاربران معمولی در پی‌وی)
             if not is_admin:
+                if not await is_member(user_id):
+                    await send_msg(cid, "⚠️ برای استفاده باید عضو کانال شوید:", {
+                        "inline_keyboard": [[{"text": "📢 عضویت در کانال", "url": MAIN_CHANNEL_URL}],
+                                            [{"text": "✅ عضو شدم", "callback_data": "بررسی عضویت"}]]
+                    })
+                    return
+
+            # د) بقیه پردازش‌ها (ادمین و کاربر عضو شده)
+            if cb_data and txt.startswith("fav:"):
+                # کد علاقه‌مندی‌ها...
+                return
+
+            # پردازش سایر پیام‌های متنی...
+            s = get_session(user_id) or {}
+            
+            # هندلر ادمین (فقط در پی‌وی)
+            if is_admin:
+                if txt == "📊 آمار ربات":
+                    await send_msg(cid, await get_bot_stats())
+                    return
+                elif txt == "👥 لیست کاربران":
+                    await send_msg(cid, get_users_list())
+                    return
+                elif txt == "📢 ارسال پیام همگانی":
+                    db["admin_state"].update_one({"_id": cid}, {"$set": {"waiting_broadcast": True}}, upsert=True)
+                    await send_msg(cid, "✍️ متن پیام را بفرستید:")
+                    return
+                
+                admin_state = db["admin_state"].find_one({"_id": cid}) or {}
+                if admin_state.get("waiting_broadcast"):
+                    if txt == "بازگشت به منو اصلی":
+                        db["admin_state"].update_one({"_id": cid}, {"$set": {"waiting_broadcast": False}}, upsert=True)
+                        await send_msg(cid, "لغو شد.")
+                        return
+                    else:
+                        success = 0
+                        for u in db["users"].find({}, {"user_id": 1}):
+                            if await send_msg(u["user_id"], f"📢 **پیام مدیریت:**\n\n{txt}"):
+                                success += 1
+                        db["admin_state"].update_one({"_id": cid}, {"$set": {"waiting_broadcast": False}}, upsert=True)
+                        await send_msg(cid, f"✅ پیام به {success} کاربر ارسال شد.")
+                        return
+
+            # دستورات عمومی
+            if txt == "🔙 مرحله قبل":
+                await handle_back_step(cid, user_id, is_admin)
+            elif "پشتیبانی" in txt:
+                await show_support(cid, send_msg)
+            elif "جستجوی سریع" in txt:
+                await send_msg(cid, "نام محله یا ویژگی را بفرستید:")
+            elif "🔔 تنظیم گوش‌به‌زنگ" in txt:
+                await register_alert(cid, user_id, s)
+            elif txt in ["🏠 خرید", "🏠 فروش", "🔑 رهن و اجاره", "🏠 منوی اصلی"] or any(x in txt for x in ["متر", "خواب", "میلیون", "میلیارد"]):
+                await handle_user_actions(cid, user_id, txt, s, is_admin, set_session, push_history, 
+                                          handle_start_flow, parse_budget_text, kb_custom_budget, 
+                                          kb_meter, search_files, show_results, kb_main, send_msg)
+            else:
                 res = list(db["files"].find({"text": {"$regex": txt, "$options": "i"}}).limit(5))
                 await show_results(cid, res, is_admin)
 
     except Exception as e:
-        print(f"Critical Error: {e}")
+        print(f"Error: {e}")
