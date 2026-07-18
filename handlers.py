@@ -68,14 +68,14 @@ async def process_bale_webhook(data: dict):
         if txt == "/start":
             name = msg_data.get("from", {}).get("first_name", "کاربر") if msg_data else "کاربر"
             register_user(cid, name)
-            await send_msg(cid, "به ربات املاک بروکر خوش آمدید! برای شروع، یکی از گزینه‌ها را انتخاب کنید:", kb_main(is_admin))
+            await send_msg(cid, "به خدمات ملکی هوشمند بروکر املاک خوش آمدید 💐 ! برای شروع، یکی از گزینه‌ها را انتخاب کنید:", kb_main(is_admin))
             return
 
         # --- ۳. قفل سخت‌گیرانه (برای هر کلیدی به جز استارت) ---
         if not is_admin:
             member_ok = await is_member(cid)
             if not member_ok:
-                await send_msg(cid, "⚠️ **دسترسی محدود است!**\nبرای استفاده از این بخش، ابتدا باید در کانال ما عضو شوید:", {
+                await send_msg(cid, "⚠️ **دسترسی محدود است!**\nلطفاً روی لینک عضو شوید، سپس به اینجا بازگردید و دکمه تایید را بزنید :", {
                     "inline_keyboard": [
                         [{"text": "📢 عضویت در کانال", "url": MAIN_CHANNEL_URL}],
                         [{"text": "✅ عضو شدم (تایید)", "callback_data": "بررسی عضویت"}]
