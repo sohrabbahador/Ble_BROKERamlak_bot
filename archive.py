@@ -1,5 +1,6 @@
 import json
 import re
+from config import db
 from core import get_session, set_session, send_msg, send_pic, get_next_sequence_value
 from keyboards import kb_main, kb_next, inline_action, kb_khab, kb_custom_budget, kb_meter
 
