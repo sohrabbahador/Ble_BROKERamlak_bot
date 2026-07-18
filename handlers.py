@@ -85,7 +85,7 @@ async def process_bale_webhook(data: dict):
                 name = msg_data.get("from", {}).get("first_name", "کاربر") if msg_data else "کاربر"
                 register_user(cid, name)
                 # متن خوش‌آمدگویی به همراه لینک کانال به صورت دستی
-                welcome_text = "💐 به خدمات ملکی هوشمند « بروکر املاک » خوش آمدید !\n\n📢 کانال اصلی:\n" + MAIN_CHANNEL_URL
+                welcome_text = "💐 به خدمات ملکی هوشمند « بروکر املاک » خوش آمدید ؛\n\n📢 کانال اصلی:\n" + MAIN_CHANNEL_URL
                 await send_msg(cid, welcome_text, kb_main(is_admin))
                 return
                 
@@ -93,7 +93,7 @@ async def process_bale_webhook(data: dict):
             # ج) سد دفاعی عضویت (فقط برای کاربران معمولی در پی‌وی)
             if not is_admin:
                 if not await is_member(user_id):
-                    await send_msg(cid, "⚠️ **دسترسی محدود است**\nجهت فعال‌سازی، ابتدا عضو کانال شده و سپس دکمه تایید را بزنید:", {
+                    await send_msg(cid, "⚠️ **دسترسی محدود است**\nجهت فعال‌سازی، ابتدا عضو کانال شده و سپس دکمه «عضو شدم » را بزنید:", {
                         "inline_keyboard": [[{"text": "🚀 عضویت در کانال", "url": MAIN_CHANNEL_URL}],
                                             [{"text": "✅ عضو شدم", "callback_data": "بررسی عضویت"}]]
                     })
