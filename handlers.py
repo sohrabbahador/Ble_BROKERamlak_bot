@@ -106,7 +106,7 @@ async def process_bale_webhook(data: dict):
             else:
                 # جلوگیری از جستجوی متن‌های سیستمی مثل "عضو شدم"
                 if any(word in txt for word in ["عضو شدم", "تایید عضویت", "عضویت در کانال"]):
-                return
+                    return
 ‌
                 # جستجوی عادی برای ملک‌ها
                 res = list(db["files"].find({"text": {"$regex": txt, "$options": "i"}}).limit(5))
