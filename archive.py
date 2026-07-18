@@ -110,15 +110,3 @@ async def get_bot_stats():
 def get_users_list():
     users = list(db["users"].find({}, {"user_id": 1, "first_name": 1}))
     return "\n".join([f"• `{u['user_id']}` ({u.get('first_name', 'بدون نام')})" for u in users])
-
-# ۱۰ تابع بررسی عضویت در کانال اصلی
-async def check_user_membership(user_id):
-    channel_id = "@" + MAIN_CHANNEL_URL.split("/")[-1]
-    api_url = f"https://tapi.bale.ai/bot{TOKEN}/getChatMember"
-    try:
-        async with httpx.AsyncClient() as client:
-            response = await client.post(api_url, json={"chat_id": channel_id, "user_id": user_id})
-            data = response.json()
-            return data.get("ok") and data["result"]["status"] in ["member", "administrator", "creator"]
-    except:
-        return False
