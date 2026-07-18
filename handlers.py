@@ -75,7 +75,7 @@ async def process_bale_webhook(data: dict):
                     await send_msg(cid, "✅ عضویت شما تایید شد.")
                 else:
                     await send_msg(cid, "❌ هنوز عضو نشدید...", {
-                        "inline_keyboard": [[{"text": "📢 عضویت در کانال", "url": MAIN_CHANNEL_URL}],
+                        "inline_keyboard": [[{"text": "🚀 عضویت در کانال", "url": MAIN_CHANNEL_URL}],
                                             [{"text": "✅ عضو شدم", "callback_data": "بررسی عضویت"}]]
                     })
                 return
@@ -94,7 +94,7 @@ async def process_bale_webhook(data: dict):
             if not is_admin:
                 if not await is_member(user_id):
                     await send_msg(cid, "⚠️ **دسترسی محدود است**\nجهت فعال‌سازی، ابتدا عضو کانال شده و سپس دکمه تایید را بزنید:", {
-                        "inline_keyboard": [[{"text": "📢 عضویت در کانال", "url": MAIN_CHANNEL_URL}],
+                        "inline_keyboard": [[{"text": "🚀 عضویت در کانال", "url": MAIN_CHANNEL_URL}],
                                             [{"text": "✅ عضو شدم", "callback_data": "بررسی عضویت"}]]
                     })
                     return
