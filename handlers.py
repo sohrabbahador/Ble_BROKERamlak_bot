@@ -90,7 +90,8 @@ async def process_bale_webhook(data: dict):
             # ج) سد دفاعی عضویت (فقط برای کاربران معمولی در پی‌وی)
             if not is_admin:
                 if not await is_member(user_id):
-                    await send_msg(cid, "⚠️ برای استفاده باید عضو کانال شوید:", {
+                    await send_msg(cid, " ⚠️ دسترسی محدود است
+> جهت فعال‌سازی، ابتدا عضو کانال شده و سپس دکمه تایید را بزنید:", {
                         "inline_keyboard": [[{"text": "📢 عضویت در کانال", "url": MAIN_CHANNEL_URL}],
                                             [{"text": "✅ عضو شدم", "callback_data": "بررسی عضویت"}]]
                     })
