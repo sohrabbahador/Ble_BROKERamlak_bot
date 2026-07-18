@@ -186,7 +186,7 @@ def search_files(kind, khab, bmin, bmax, mmin, mmax, page):
 async def send_msg(cid, text, kb=None):
     payload = {
         "chat_id": cid,
-        "text": f"{text}\n\n📢 *کانال اصلی:*\n{MAIN_CHANNEL_URL}",
+        "text": f"{text}",
         "parse_mode": "Markdown",
     }
     if kb:
@@ -199,7 +199,7 @@ async def send_pic(cid, pid, cap, kb=None):
     payload = {
         "chat_id": cid,
         "photo": pid,
-        "caption": f"{cap}\n\n📢 *کانال اصلی:*\n{MAIN_CHANNEL_URL}",
+        "caption": f"{cap}",
         "parse_mode": "Markdown",
     }
     if kb:
