@@ -111,24 +111,26 @@ def get_users_list():
     users = list(db["users"].find({}, {"user_id": 1, "first_name": 1}))
     return "\n".join([f"• `{u['user_id']}` ({u.get('first_name', 'بدون نام')})" for u in users])
 
-# ۱۰ مدیریت عضویت (نسخه بهینه شده برای بله - تثبیت دکمه‌ها)
+# ۱۰ مدیریت عضویت (نسخه اصلاح شده برای رفع مشکل پنهان شدن دکمه‌ها در بله)
 async def handle_membership_flow(cid, user_id, is_admin, cb_data, txt, send_msg, MAIN_CHANNEL_URL, kb_main, is_member_func):
-    """مدیریت عضویت: ارسال در دو مرحله برای تثبیت کیبورد اصلی و ارائه دکمه عضویت"""
+    """مدیریت عضویت: ارسال دکمه عضویت و کیبورد اصلی در یک پیام واحد برای جلوگیری از بسته شدن کیبورد"""
     if not is_admin and not await is_member_func(user_id):
-        # مرحله ۱: ارسال کیبورد اصلی برای تثبیت دکمه‌های منو در پایین صفحه
+        # دریافت ساختار کیبورد اصلی
         keyboard_data = kb_main(is_admin)
-        await send_msg(cid, "⚠️ **دسترسی محدود است**", keyboard_data)
 
-        # مرحله ۲: ارسال دکمه عضویت به صورت شیشه‌ای در پیام دوم (دقیقاً مشابه متن قبلی شما)
-        inline_markup = {
-            "inline_keyboard": [[{"text": "🚀 عضویت در کانال", "url": MAIN_CHANNEL_URL}]]
+        # ایجاد یک ساختار ترکیبی: دکمه شیشه‌ای برای عضویت + کیبورد پایین برای منو
+        combined_markup = {
+            "inline_keyboard": [[{"text": "🚀 عضویت در کانال", "url": MAIN_CHANNEL_URL}]],
+            "keyboard": keyboard_data.get("keyboard", []),  # استخراج لیست دکمه‌ها از kb_main
+            "resize_keyboard": True
         }
-        await send_msg(cid, "ابتدا عضو کانال شوید :", inline_markup)
 
-        return True  # کاربر عضو نیست، عملیات متوقف شود
+        # ارسال تک پیام: متن هشدار + دکمه عضویت (شیشه‌ای) + منوی اصلی (پایین)
+        await send_msg(cid, "⚠️ **دسترسی محدود است**\nابتدا عضو کانال شوید :", combined_markup)
+
+        return True
     
-    return False  # کاربر عضو است، بدون پیام اضافه به مسیر خود ادامه دهد
-    
+    return False    
 
 # ۱۱ تابع ارسال پیام خوش‌آمدگویی
 async def send_welcome_message(cid, name, is_admin, send_msg, MAIN_CHANNEL_URL, kb_main):
