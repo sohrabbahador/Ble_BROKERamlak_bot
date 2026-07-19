@@ -1,4 +1,4 @@
-sohrab bahador: import json
+import json
 import re
 from config import db
 from core import get_session, set_session, send_msg, send_pic, get_next_sequence_value
