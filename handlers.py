@@ -53,18 +53,16 @@ async def process_bale_webhook(data: dict):
             return
 
         if chat_type == "private":
-            # استارت آزاد (ابتدا خوش‌آمدگویی ارسال می‌شود)
             if txt == "/start":
                 name = msg_data.get("from", {}).get("first_name", "کاربر") if msg_data else "کاربر"
                 register_user(cid, name)
                 await send_welcome_message(cid, name, is_admin, send_msg, MAIN_CHANNEL_URL, kb_main)
                 return
 
-            # سد دفاعی عضویت (بعد از استارت، روی دکمه‌ها اعمال می‌شود)
+            # سد دفاعی عضویت (بدون دکمه عضو شدم)
             if await handle_membership_flow(cid, user_id, is_admin, cb_data, txt, send_msg, MAIN_CHANNEL_URL, kb_main, is_member):
                 return
                 
-            # مدیریت دکمه‌های شیشه‌ای (علاقه‌مندی‌ها و حذف)
             if cb_data and txt.startswith("fav:"):
                 prop_id = int(txt.split(":")[1])
                 await add_to_favorites(cid, user_id, prop_id, send_msg)
@@ -104,10 +102,7 @@ async def process_bale_webhook(data: dict):
                                           handle_start_flow, parse_budget_text, kb_custom_budget, 
                                           kb_meter, search_files, show_results, kb_main, send_msg)
             else:
-                if any(word in txt for word in ["عضو شدم", "تایید عضویت", "عضویت در کانال"]):
-                    return
-                
-                # جستجوی عادی برای ملک‌ها
+                # جستجوی عادی برای ملک‌ها (بدون فیلترِ «عضو شدم»)
                 res = list(db["files"].find({"text": {"$regex": txt, "$options": "i"}}).limit(5))
                 await show_results(cid, res, is_admin)
     except Exception as e: print(f"Error: {e}")
