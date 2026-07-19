@@ -59,9 +59,15 @@ async def process_bale_webhook(data: dict):
                 await send_welcome_message(cid, name, is_admin, send_msg, MAIN_CHANNEL_URL, kb_main)
                 return
 
-            # سد دفاعی عضویت (بدون دکمه عضو شدم)
+            # سد دفاعی عضویت (اصلی)
             if await handle_membership_flow(cid, user_id, is_admin, cb_data, txt, send_msg, MAIN_CHANNEL_URL, kb_main, is_member):
                 return
+            
+            # تثبیت کیبورد پس از تأیید عضویت
+            s = get_session(user_id) or {}
+            if not s.get("keyboard_set"):
+                set_session(user_id, keyboard_set=True)
+                await send_msg(cid, "✅ فعال شد! منوی خدمات در اختیار شماست.", kb_main(is_admin))
                 
             if cb_data and txt.startswith("fav:"):
                 prop_id = int(txt.split(":")[1])
@@ -102,7 +108,6 @@ async def process_bale_webhook(data: dict):
                                           handle_start_flow, parse_budget_text, kb_custom_budget, 
                                           kb_meter, search_files, show_results, kb_main, send_msg)
             else:
-                # جستجوی عادی برای ملک‌ها (بدون فیلترِ «عضو شدم»)
                 res = list(db["files"].find({"text": {"$regex": txt, "$options": "i"}}).limit(5))
                 await show_results(cid, res, is_admin)
     except Exception as e: print(f"Error: {e}")
