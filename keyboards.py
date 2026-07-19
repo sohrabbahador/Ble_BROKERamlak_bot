@@ -3,7 +3,6 @@ from config import MAIN_CHANNEL_URL
 
 def kb_main(is_admin=False):
     kb = [
-    [{"text": "🚀 عضویت در کانال اصلی"}],
     [{"text": "🏠 خرید"}, {"text": "🔑 رهن و اجاره"}],
     [{"text": "🔍 جستجوی سریع"}, {"text": "⭐ علاقه‌مندی‌ها"}],
     [{"text": "🔔 تنظیم گوش‌به‌زنگ"}, {"text": "📞 پشتیبانی"}]
