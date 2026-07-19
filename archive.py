@@ -31,8 +31,11 @@ async def show_results(cid, res, is_admin):
     for r in res:
         cap = f"🏠 **پیشنهاد ویژه بروکر**\n\n{r['text'][:300]}..."
         photos = json.loads(r["photos"]) if r.get("photos") else []
-        if photos: await send_pic(cid, photos[0], cap, inline_action(r["id"]))
-        else: await send_msg(cid, cap, inline_action(r["id"]))
+        kb = inline_action(r["id"])
+        kb["keyboard"] = kb_main(is_admin)["keyboard"]
+        kb["resize_keyboard"] = True
+        if photos: await send_pic(cid, photos[0], cap, kb)
+        else: await send_msg(cid, cap, kb)
     await send_msg(cid, "📄 برای مشاهده گزینه‌های بیشتر:", kb_next())
 
 # ۴ این تابع منطقِ بازگشت به مرحله قبلی در سشن کاربر را مدیریت می‌کند
@@ -70,15 +73,19 @@ async def handle_start_flow(cid, user_id, kind):
     await send_msg(cid, "تعداد اتاق خواب مورد نظرتان را انتخاب کنید:", kb_khab())
 
 # ۶ بخش پشتیبانی
-async def show_support(cid, send_msg):
-    await send_msg(cid, "📞 **پشتیبانی بروکر**\n\nبا کلیک روی دکمه‌های زیر تماس بگیرید یا پیام دهید:", {
+async def show_support(cid, send_msg, is_admin):
+    kb = {
         "inline_keyboard": [
             [{"text": "📱 09123692401", "url": "tel:+989123692401"}, {"text": "📱 09003692401", "url": "tel:+989003692401"}],
             [{"text": "🟢 پیام در بله 💬", "url": "https://ble.ir/sohrabbahador"}]
-        ]
-    })
+        ],
+        "keyboard": kb_main(is_admin)["keyboard"],
+        "resize_keyboard": True
+    }
+    await send_msg(cid, "📞 **پشتیبانی بروکر**\n\nبا کلیک روی دکمه‌های زیر تماس بگیرید یا پیام دهید:", kb)
+
 # ۷ تابع گوش به زنگ 🔔
-async def register_alert(cid, user_id, s):
+async def register_alert(cid, user_id, s, is_admin):
     if s and s.get("kind"):
         db["alerts"].insert_one({
             "id": get_next_sequence_value("alert_id"), 
@@ -90,9 +97,9 @@ async def register_alert(cid, user_id, s):
             "meter_min": s.get("meter_min"), 
             "meter_max": s.get("meter_max")
         })
-        await send_msg(cid, "✅ فیلترهای جستجوی شما در بخش گوش‌به‌زنگ ثبت شد!")
+        await send_msg(cid, "✅ فیلترهای جستجوی شما در بخش گوش‌به‌زنگ ثبت شد!", kb_main(is_admin))
     else: 
-        await send_msg(cid, "⚠️ ابتدا باید یکبار از طریق دکمه‌های منو جستجوی ملک را کامل کنید.")
+        await send_msg(cid, "⚠️ ابتدا باید یکبار از طریق دکمه‌های منو جستجوی ملک را کامل کنید.", kb_main(is_admin))
         
 # ۸ این تابع آمار کلی ربات را استخراج می‌کند
 async def get_bot_stats():
@@ -112,38 +119,28 @@ def get_users_list():
 
 # ۱۰ مدیریت عضویت (نسخه نهایی و اصلاح شده برای بله)
 async def handle_membership_flow(cid, user_id, is_admin, cb_data, txt, send_msg, MAIN_CHANNEL_URL, kb_main, is_member_func):
-    """مدیریت عضویت: ارسال هشدار همراه با کیبورد اصلی جهت جلوگیری از حذف شدن کیبورد"""
     if not is_admin and not await is_member_func(user_id):
-        # دریافت ساختار کیبورد اصلی کاربر
         keyboard_data = kb_main(is_admin)
-        
-        # ترکیب دکمه لینک کانال (Inline) و کیبورد اصلی (Reply)
         combined_markup = {
             "inline_keyboard": [[{"text": "🚀 عضویت در کانال", "url": MAIN_CHANNEL_URL}]],
             "keyboard": keyboard_data["keyboard"],
             "resize_keyboard": True
         }
-        
-        # ارسال پیام هشدار به همراه هر دو کیبورد
         await send_msg(cid, "⚠️ **دسترسی محدود است**\n ابتدا عضو کانال شوید :", combined_markup)
         return True
     return False
 
-
-
 # ۱۱ تابع ارسال پیام خوش‌آمدگویی
 async def send_welcome_message(cid, name, is_admin, send_msg, MAIN_CHANNEL_URL, kb_main):
-    """ارسال متن خوش‌آمدگویی"""
     welcome_text = f"💐 به خدمات ملکی هوشمند « بروکر املاک » خوش آمدید ؛\n\n🚀 کانال اصلی:\n{MAIN_CHANNEL_URL}"
     await send_msg(cid, welcome_text, kb_main(is_admin))
 
-# تابع علاقه مندی ها فعلا دکمه موجود تا ارتقا داده شود ۱۲
-async def add_to_favorites(cid, user_id, prop_id, send_msg):
-    await send_msg(cid, "⚠️ بخش علاقه‌مندی‌ها در حال به‌روزرسانی است و به‌زودی در دسترس قرار می‌گیرد.")
+# ۱۲ تابع علاقه مندی ها
+async def add_to_favorites(cid, user_id, prop_id, send_msg, is_admin):
+    await send_msg(cid, "⚠️ بخش علاقه‌مندی‌ها در حال به‌روزرسانی است و به‌زودی در دسترس قرار می‌گیرد.", kb_main(is_admin))
 
 async def show_favorites(cid, user_id, send_msg, is_admin):
-    await send_msg(cid, "⚠️ بخش علاقه‌مندی‌ها در حال به‌روزرسانی است و به‌زودی در دسترس قرار می‌گیرد.")
+    await send_msg(cid, "⚠️ بخش علاقه‌مندی‌ها در حال به‌روزرسانی است و به‌زودی در دسترس قرار می‌گیرد.", kb_main(is_admin))
 
-async def remove_from_favorites(cid, user_id, prop_id, send_msg):
-    await send_msg(cid, "⚠️ بخش علاقه‌مندی‌ها در حال به‌روزرسانی است و به‌زودی در دسترس قرار می‌گیرد.")
-    
+async def remove_from_favorites(cid, user_id, prop_id, send_msg, is_admin):
+    await send_msg(cid, "⚠️ بخش علاقه‌مندی‌ها در حال به‌روزرسانی است و به‌زودی در دسترس قرار می‌گیرد.", kb_main(is_admin))
