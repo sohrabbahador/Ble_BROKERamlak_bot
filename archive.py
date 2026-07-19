@@ -111,26 +111,22 @@ def get_users_list():
     users = list(db["users"].find({}, {"user_id": 1, "first_name": 1}))
     return "\n".join([f"• `{u['user_id']}` ({u.get('first_name', 'بدون نام')})" for u in users])
 
-# ۱۰ مدیریت عضویت (نسخه اصلاح شده برای رفع مشکل پنهان شدن دکمه‌ها در بله)
+# ۱۰ مدیریت عضویت (نسخه بهینه و ساده شده)
 async def handle_membership_flow(cid, user_id, is_admin, cb_data, txt, send_msg, MAIN_CHANNEL_URL, kb_main, is_member_func):
-    """مدیریت عضویت: ارسال دکمه عضویت و کیبورد اصلی در یک پیام واحد برای جلوگیری از بسته شدن کیبورد"""
+    """مدیریت عضویت: استفاده از کیبورد اصلاح شده در فایل keyboards.py"""
     if not is_admin and not await is_member_func(user_id):
-        # دریافت ساختار کیبورد اصلی
-        keyboard_data = kb_main(is_admin)
+        # فقط کیبورد اصلی را صدا می‌زنیم (که دکمه عضویت در آن قرار دارد)
+        combined_markup = kb_main(is_admin)
 
-        # ایجاد یک ساختار ترکیبی: دکمه شیشه‌ای برای عضویت + کیبورد پایین برای منو
-        combined_markup = {
-            "inline_keyboard": [[{"text": "🚀 عضویت در کانال", "url": MAIN_CHANNEL_URL}]],
-            "keyboard": keyboard_data.get("keyboard", []),  # استخراج لیست دکمه‌ها از kb_main
-            "resize_keyboard": True
-        }
-
-        # ارسال تک پیام: متن هشدار + دکمه عضویت (شیشه‌ای) + منوی اصلی (پایین)
-        await send_msg(cid, "⚠️ **دسترسی محدود است**\nابتدا عضو کانال شوید :", combined_markup)
+        # ارسال پیام هشدار به همراه لینک مستقیم در متن برای عضویت سریع
+        await send_msg(
+            cid,
+            f"⚠️ **دسترسی محدود است**\n\nلطفاً ابتدا عضو کانال شوید تا منوی خدمات فعال شود:\n{MAIN_CHANNEL_URL}\n\n(بعد از عضویت، روی هر دکمه کلیک کنید)",
+            combined_markup
+        )
 
         return True
-    
-    return False    
+    return False   
 
 # ۱۱ تابع ارسال پیام خوش‌آمدگویی
 async def send_welcome_message(cid, name, is_admin, send_msg, MAIN_CHANNEL_URL, kb_main):
