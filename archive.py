@@ -110,19 +110,17 @@ def get_users_list():
     users = list(db["users"].find({}, {"user_id": 1, "first_name": 1}))
     return "\n".join([f"• `{u['user_id']}` ({u.get('first_name', 'بدون نام')})" for u in users])
 
-# ۱۰ مدیریت عضویت
+# ۱۰ مدیریت عضویت (نسخه نهایی و درست)
 async def handle_membership_flow(cid, user_id, is_admin, cb_data, txt, send_msg, MAIN_CHANNEL_URL, kb_main, is_member_func):
-    """مدیریت کامل عضویت"""
+    """مدیریت عضویت: هشدار به کاربر غیرعضو بدون دکمه تایید"""
     if not is_admin and not await is_member_func(user_id):
-        if cb_data and txt == "بررسی عضویت":
-            if await is_member_func(user_id):
-                await send_msg(cid, "✅ عضویت شما تایید شد.", kb_main(is_admin))
-            else:
-                await send_msg(cid, "❌ هنوز عضو نشدید...", {"inline_keyboard": [[{"text": "🚀 عضویت در کانال", "url": MAIN_CHANNEL_URL}], [{"text": "✅ عضو شدم", "callback_data": "بررسی عضویت"}]]})
-            return True
-        await send_msg(cid, "⚠️ **دسترسی محدود است**\nجهت فعال‌سازی، ابتدا عضو کانال شده و سپس دکمه «عضو شدم » را بزنید:", {"inline_keyboard": [[{"text": "🚀 عضویت در کانال", "url": MAIN_CHANNEL_URL}], [{"text": "✅ عضو شدم", "callback_data": "بررسی عضویت"}]]})
+        # این پیغام فقط زمانی نمایش داده می‌شود که کاربر سعی کند از کلیدها استفاده کند
+        await send_msg(cid, "⚠️ **دسترسی محدود است**\nبرای استفاده از ربات، ابتدا عضو کانال ما شوید:", {
+            "inline_keyboard": [[{"text": "🚀 عضویت در کانال", "url": MAIN_CHANNEL_URL}]]
+        })
         return True
     return False
+
 
 # ۱۱ تابع ارسال پیام خوش‌آمدگویی
 async def send_welcome_message(cid, name, is_admin, send_msg, MAIN_CHANNEL_URL, kb_main):
