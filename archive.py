@@ -110,16 +110,25 @@ def get_users_list():
     users = list(db["users"].find({}, {"user_id": 1, "first_name": 1}))
     return "\n".join([f"• `{u['user_id']}` ({u.get('first_name', 'بدون نام')})" for u in users])
 
-# ۱۰ مدیریت عضویت (نسخه نهایی و درست)
+# ۱۰ مدیریت عضویت (نسخه نهایی و اصلاح شده برای بله)
 async def handle_membership_flow(cid, user_id, is_admin, cb_data, txt, send_msg, MAIN_CHANNEL_URL, kb_main, is_member_func):
-    """مدیریت عضویت: هشدار به کاربر غیرعضو بدون دکمه تایید"""
+    """مدیریت عضویت: ارسال هشدار همراه با کیبورد اصلی جهت جلوگیری از حذف شدن کیبورد"""
     if not is_admin and not await is_member_func(user_id):
-        # این پیغام فقط زمانی نمایش داده می‌شود که کاربر سعی کند از کلیدها استفاده کند
-        await send_msg(cid, "⚠️ **دسترسی محدود است**\nبرای استفاده از ربات، ابتدا عضو کانال ما شوید:", {
-            "inline_keyboard": [[{"text": "🚀 عضویت در کانال", "url": MAIN_CHANNEL_URL}]]
-        })
+        # دریافت ساختار کیبورد اصلی کاربر
+        keyboard_data = kb_main(is_admin)
+        
+        # ترکیب دکمه لینک کانال (Inline) و کیبورد اصلی (Reply)
+        combined_markup = {
+            "inline_keyboard": [[{"text": "🚀 عضویت در کانال", "url": MAIN_CHANNEL_URL}]],
+            "keyboard": keyboard_data["keyboard"],
+            "resize_keyboard": True
+        }
+        
+        # ارسال پیام هشدار به همراه هر دو کیبورد
+        await send_msg(cid, "⚠️ **دسترسی محدود است**\n ابتدا عضو کانال شوید :", combined_markup)
         return True
     return False
+
 
 
 # ۱۱ تابع ارسال پیام خوش‌آمدگویی
