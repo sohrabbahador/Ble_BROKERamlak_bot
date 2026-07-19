@@ -72,7 +72,7 @@ async def process_bale_webhook(data: dict):
             s = get_session(user_id) or {}
             if not s.get("keyboard_set"):
                 set_session(user_id, keyboard_set=True)
-                await send_msg(cid, "✅ فعال شد! منوی خدمات در اختیار شماست.", kb_main(is_admin))
+                await send_msg(cid, "✅ فعال شد! منوی خدمات در اختیار شماست", kb_main(is_admin))
 
             if cb_data and txt.startswith("fav:"):
                 prop_id = int(txt.split(":")[1])
