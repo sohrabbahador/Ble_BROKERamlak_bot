@@ -129,3 +129,14 @@ async def send_welcome_message(cid, name, is_admin, send_msg, MAIN_CHANNEL_URL, 
     """ارسال متن خوش‌آمدگویی"""
     welcome_text = f"💐 به خدمات ملکی هوشمند « بروکر املاک » خوش آمدید ؛\n\n🚀 کانال اصلی:\n{MAIN_CHANNEL_URL}"
     await send_msg(cid, welcome_text, kb_main(is_admin))
+
+# تابع علاقه مندی ها فعلا دکمه موجود تا ارتقا داده شود ۱۲
+async def add_to_favorites(cid, user_id, prop_id, send_msg):
+    await send_msg(cid, "⚠️ بخش علاقه‌مندی‌ها در حال به‌روزرسانی است و به‌زودی در دسترس قرار می‌گیرد.")
+
+async def show_favorites(cid, user_id, send_msg, is_admin):
+    await send_msg(cid, "⚠️ بخش علاقه‌مندی‌ها در حال به‌روزرسانی است و به‌زودی در دسترس قرار می‌گیرد.")
+
+async def remove_from_favorites(cid, user_id, prop_id, send_msg):
+    await send_msg(cid, "⚠️ بخش علاقه‌مندی‌ها در حال به‌روزرسانی است و به‌زودی در دسترس قرار می‌گیرد.")
+    
