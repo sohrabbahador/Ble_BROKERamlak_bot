@@ -78,18 +78,18 @@ async def process_bale_webhook(data: dict):
             
             # --- بخش پنل مدیریت ---
             if is_admin:
-                if txt == "📊 آمار ربات":
+                if "📊 آمار ربات" in txt:
                     await send_msg(cid, await get_bot_stats())
-                elif txt == "👥 لیست کاربران":
+                elif "👥 لیست کاربران" in txt:
                     await send_msg(cid, get_users_list())
-                elif txt == "📢 ارسال پیام همگانی":
+                elif "📢 ارسال پیام همگانی" in txt:
                     db["admin_state"].update_one({"_id": cid}, {"$set": {"waiting_broadcast": True}}, upsert=True)
                     await send_msg(cid, "✍️ متن پیام را بفرستید:")
                     return
                 
                 admin_state = db["admin_state"].find_one({"_id": cid}) or {}
                 if admin_state.get("waiting_broadcast"):
-                    if txt == "بازگشت به منو اصلی":
+                    if "بازگشت به منو اصلی" in txt:
                         db["admin_state"].update_one({"_id": cid}, {"$set": {"waiting_broadcast": False}}, upsert=True)
                         await send_msg(cid, "به منوی اصلی بازگشتید:", kb_main(is_admin))
                     else:
@@ -102,7 +102,7 @@ async def process_bale_webhook(data: dict):
                     return
             
             # --- پردازش دستورات عمومی و منوی کاربری ---
-            if txt == "🔙 مرحله قبل":
+            if "🔙 مرحله قبل" in txt:
                 await handle_back_step(cid, user_id, is_admin)
             elif "علاقه‌مندی‌ها" in txt:
                 await show_favorites(cid, user_id, send_msg, is_admin)
@@ -113,9 +113,8 @@ async def process_bale_webhook(data: dict):
             elif "گوش‌به‌زنگ" in txt:
                 await register_alert(cid, user_id, s)
             elif any(kw in txt for kw in ["خرید", "فروش", "رهن", "اجاره", "منوی اصلی"]) or any(x in txt for x in ["متر", "خواب", "میلیون", "میلیارد"]):
-                # ارسال مستقیم توابع برای اطمینان از اجرای صحیح
-                await handle_user_actions(cid, user_id, txt, s, is_admin, set_session, push_history, handle_start_flow, parse_budget_text, kb_custom_budget, kb_meter, show_results, kb_main, send_msg)
-              
+                # اصلاح شد: اضافه شدن kb_khab به ترتیب آرگومان‌ها برای جلوگیری از TypeError
+                await handle_user_actions(cid, user_id, txt, s, is_admin, set_session, push_history, handle_start_flow, parse_budget_text, kb_custom_budget, kb_meter, kb_khab, show_results, kb_main, send_msg)
             
             # --- جستجوی فایل‌ها در دیتابیس ---
             else:
