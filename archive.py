@@ -204,7 +204,7 @@ async def handle_membership_flow(
 
     MEMBERSHIP_TEXTS = {
         "full": (
-            "برای استفاده از تمامی منوی خدمات، لطفاً ابتدا عضو کانال شوید.\n\n"
+            "**برای استفاده از تمامی منوی خدمات، لطفاً ابتدا عضو کانال شوید**.\n\n"
             "────────────────\n"
             "✅ *پس از عضویت، برگردید و ادامه دهید.*"
         ),
@@ -219,7 +219,7 @@ async def handle_membership_flow(
     inline_kb = {
         "inline_keyboard": [
             [{"text": "🚀 عضویت در کانال بروکر", "url": MAIN_CHANNEL_URL}],
-            [{"text": "✅ من عضو شدم (بازگشت به منو)", "callback_data": "check_membership"}],
+            [{"text": "✅ عضو شدم", "callback_data": "check_membership"}],
         ]
     }
 
