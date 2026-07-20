@@ -117,7 +117,12 @@ async def process_bale_webhook(data: dict):
             
             # --- جستجوی فایل‌ها در دیتابیس ---
             else:
-                res = list(db["files"].find({"text": {"$regex": txt, "$options": "i"}}).limit(5))
-                await show_results(cid, res, is_admin)
+                from property import ADMIN_STATES
+                if ADMIN_STATES.get(user_id) in ["waiting_min_budget_flow", "waiting_max_budget_flow"]:
+                    await handle_user_actions(cid, user_id, txt, s, is_admin, set_session, push_history, handle_start_flow, parse_budget_text, kb_custom_budget, kb_meter, kb_khab, show_results, kb_main, send_msg)
+                else:
+                    res = list(db["files"].find({"text": {"$regex": txt, "$options": "i"}}).limit(5))
+                    await show_results(cid, res, is_admin)
+
     except Exception as e:
         print(f"Error: {e}")
