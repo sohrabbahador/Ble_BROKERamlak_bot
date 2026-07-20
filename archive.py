@@ -239,7 +239,7 @@ async def handle_membership_flow(
 
 # ۱۱. ارسال پیام خوش‌آمدگویی
 async def send_welcome_message(cid, name, is_admin, send_msg, MAIN_CHANNEL_URL, kb_main):
-    welcome_text = f"💐 به خدمات ملکی هوشمند « بروکر املاک » خوش آمدید ؛\n\n🚀 کانال اصلی:\n{MAIN_CHANNEL_URL}"
+    welcome_text = f"💐 **به خدمات ملکی «هوشمند» بروکر املاک خوش آمدید**\n\n🚀 کانال اصلی:\n{MAIN_CHANNEL_URL}"
     await send_msg(cid, welcome_text, kb_main(is_admin))
 
 
