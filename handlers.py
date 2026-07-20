@@ -112,8 +112,9 @@ async def process_bale_webhook(data: dict):
                 await send_msg(cid, "نام محله یا ویژگی را بفرستید:")
             elif "گوش‌به‌زنگ" in txt:
                 await register_alert(cid, user_id, s)
-            elif any(kw in txt for kw in ["خرید", "فروش", "رهن", "اجاره", "منوی اصلی", "بودجه", "حداقل", "حداکثر"]) or any(x in txt for x in ["متر", "خواب", "میلیون", "میلیارد"]):
-                await handle_user_actions(cid, user_id, txt, s, is_admin, set_session, push_history, handle_start_flow, parse_budget_text, kb_custom_budget, kb_meter, kb_khab, show_results, kb_main, send_msg)
+            elif any(kw in txt for kw in ["خرید", "فروش", ...]):
+                await handle_user_actions(cid, user_id, txt, s, is_admin, set_session, push_history, handle_start_flow, parse_budget_text, kb_budget_2khab, kb_budget_3khab, kb_meter_2khab, kb_meter_3khab, kb_khab, show_results, kb_main, send_msg)
+
             
             # --- جستجوی فایل‌ها در دیتابیس ---
             else:
