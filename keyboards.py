@@ -72,32 +72,7 @@ def kb_meter_3khab():
         "resize_keyboard": True
     }
 
-
-def kb_custom_budget(khab_type: str):
-    """تولید منوی بودجه داینامیک و متناسب با تعداد خواب انتخاب شده"""
-    suffix = "خواب‌ها"
-    if khab_type == "۴ خواب و بیشتر":
-        suffix = "۴خواب‌ها به بالا"
-    else:
-        suffix = f"{khab_type}ها"
-
-    return {
-        "keyboard": [
-            [{"text": f"📋 مشاهده همه {suffix}"}],
-            [{"text": "🔙 مرحله قبل"}, {"text": "بازگشت به منو اصلی"}]
-        ],
-        "resize_keyboard": True
-    }
-
-def kb_next():
-    return {
-        "keyboard": [
-            [{"text": "🔙 مرحله قبل"}, {"text": "بازگشت به منو اصلی"}]
-        ],
-        "resize_keyboard": True
-    }
-
-def inline_action(fid):
+ def inline_action(fid):
     share_url = f"https://ble.ir/share/url?url=https://t.me/BrokerBot?start=file_{fid}"
     return {
         "inline_keyboard": [
