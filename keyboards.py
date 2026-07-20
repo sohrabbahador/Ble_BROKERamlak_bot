@@ -72,7 +72,7 @@ def kb_meter_3khab():
         "resize_keyboard": True
     }
 
- def inline_action(fid):
+def inline_action(fid):
     share_url = f"https://ble.ir/share/url?url=https://t.me/BrokerBot?start=file_{fid}"
     return {
         "inline_keyboard": [
