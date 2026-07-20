@@ -42,7 +42,7 @@ async def handle_user_actions(cid, user_id, txt, s, is_admin, set_session, push_
             state = ADMIN_STATES.pop(user_id, None)  # حذف وضعیت برای جلوگیری از تداخل
             if state == "waiting_min_budget_flow":
                 set_session(user_id, budje_min=budget_val)
-                await send_msg(cid, f"✅ حداقل بودجه ثبت شد: {budget_val:,} تومان\nحداکثر بودجه را تعیین کنید یا مستقیماً متراژ را انتخاب کنید.", kb_custom_budget(khab_val))
+                await send_msg(cid, f"✅ حداقل بودجه ثبت شد: {budget_val:,} تومان\n*حداکثر بودجه را تعیین کنید*", kb_custom_budget(khab_val))
                 return
             elif state == "waiting_max_budget_flow":
                 set_session(user_id, budje_max=budget_val)
