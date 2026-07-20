@@ -168,17 +168,36 @@ def get_session(user_id):
 
 
 def search_files(kind, khab, bmin, bmax, mmin, mmax, page):
+    # شروع کوئری با نوع ملک (که اجباری است)
     query = {"kind": kind}
+
+    # فیلتر تعداد خواب (اگر انتخاب شده باشد)
     if khab:
         query["khab"] = khab
-    if bmin is not None and bmax is not None:
-        query["price"] = {"$gte": bmin, "$lte": bmax}
-    if mmin is not None and mmax is not None:
-        query["meter"] = {"$gte": mmin, "$lte": mmax}
+
+    # فیلتر بودجه (به صورت منعطف)
+    price_filter = {}
+    if bmin is not None:
+        price_filter["$gte"] = bmin
+    if bmax is not None:
+        price_filter["$lte"] = bmax
+
+    if price_filter:  # اگر حداقل یا حداکثر بودجه مقدار داشت، به کوئری اضافه شود
+        query["price"] = price_filter
+
+    # فیلتر متراژ (به صورت منعطف)
+    meter_filter = {}
+    if mmin is not None:
+        meter_filter["$gte"] = mmin
+    if mmax is not None:
+        meter_filter["$lte"] = mmax
+
+    if meter_filter:  # اگر حداقل یا حداکثر متراژ مقدار داشت، به کوئری اضافه شود
+        query["meter"] = meter_filter
 
     limit = 5
     skip = (page - 1) * limit
-    
+
     res = list(db["files"].find(query).skip(skip).limit(limit))
     return res
 
