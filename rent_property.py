@@ -3,8 +3,7 @@ from core import set_session, push_history, send_msg
 from keyboards import (
     kb_khab as kb_khab_selection,  # سازگاری نام کیبورد
 )
-
-from database import search_files  # توابع دیتابیس را ایمپورت کن
+from core import search_files
 from results import show_results  # تابع نمایش نتایج را ایمپورت کن
 
 
