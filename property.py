@@ -1,8 +1,10 @@
 # property.py
 import json
 from config import db
+from core import send_msg  # <--- این خط باید اضافه شود
 
 ADMIN_STATES = {}
+
 
 def get_meter_range(txt):
     m_map = {
