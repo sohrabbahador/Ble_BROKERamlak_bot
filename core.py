@@ -234,3 +234,12 @@ async def send_media_group(cid, media_list):
     }
     async with httpx.AsyncClient() as client:
         return await client.post(f"{BASE_URL}/sendMediaGroup", json=payload)
+
+# --- اضافه کردن تابع push_history برای جلوگیری از خطای ایمپورت ---
+def push_history(user_id, step_name):
+    db["sessions"].update_one(
+        {"user_id": user_id},
+        {"$push": {"history": {"$each": [step_name], "$slice": -10}}},
+        upsert=True
+    )
+    
