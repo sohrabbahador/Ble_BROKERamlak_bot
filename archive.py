@@ -4,7 +4,7 @@ from config import db
 from core import get_next_sequence_value, get_session, send_msg, send_pic, set_session
 from keyboards import inline_action, kb_khab, kb_main, kb_budget_2khab, kb_budget_3khab, kb_meter_2khab, kb_meter_3khab
 
-# تعریف دکمه صفحه بعد (جایگزین kb_next که در keyboards نبود)
+# تعریف دکمه صفحه بعد
 def kb_next():
     return {"keyboard": [[{"text": "صفحه بعد ➡️"}, {"text": "بازگشت به منو اصلی"}]], "resize_keyboard": True}
 
@@ -32,6 +32,7 @@ def push_history(user_id, state_name):
 # ۳. نمایش لیست املاک پیدا شده
 async def show_results(cid, res, is_admin):
     if not res:
+        # اصلاح: kb_main باید اجرا شود kb_main(is_admin)
         await send_msg(cid, "❌ متاسفانه ملکی با این مشخصات یافت نشد. فیلترها را تغییر دهید یا مجدداً تلاش کنید.", kb_main(is_admin))
         return
     for r in res:
@@ -114,13 +115,13 @@ def get_users_list():
     users = list(db["users"].find({}, {"user_id": 1, "first_name": 1}))
     return "\n".join([f"• `{u['user_id']}` ({u.get('first_name', 'بدون نام')})" for u in users])
 
-# ۱۰. مدیریت عضویت (اصلاح شده برای جلوگیری از ارور dict و await)
-async def handle_membership_flow(cid, user_id, is_admin, cb_data, txt, MAIN_CHANNEL_URL, kb_main, is_member_func, s=None):
+# ۱۰. مدیریت عضویت (اصلاح شده برای رفع ارور JSON serialization)
+async def handle_membership_flow(cid, user_id, is_admin, cb_data, txt, MAIN_CHANNEL_URL, kb_main_func, is_member_func, s=None):
     global warned_users
     
-    # مدیریت هوشمند await برای جلوگیری از ارور 'dict' object can't be awaited
     is_member = False
     try:
+        # اگر is_member_func یک تابع است آن را اجرا می‌کنیم
         is_member = await is_member_func(user_id) if callable(is_member_func) else False
     except Exception:
         is_member = False
@@ -134,13 +135,18 @@ async def handle_membership_flow(cid, user_id, is_admin, cb_data, txt, MAIN_CHAN
     if user_id not in warned_users: warned_users.add(user_id)
     
     await send_msg(cid, message, inline_kb)
-    await send_msg(cid, "🔹 لطفاً پس از عضویت، دکمه تایید را بزنید.", kb_main(is_admin))
+    
+    # اصلاح حیاتی: kb_main_func باید اجرا شود تا دیکشنری برگرداند، نه اینکه خود تابع فرستاده شود
+    main_kb = kb_main_func(is_admin) if callable(kb_main_func) else {}
+    await send_msg(cid, "🔹 لطفاً پس از عضویت، دکمه تایید را بزنید.", main_kb)
     return True
 
 # ۱۱. ارسال پیام خوش‌آمدگویی
-async def send_welcome_message(cid, name, user_id, is_admin, MAIN_CHANNEL_URL, kb_main):
+async def send_welcome_message(cid, name, user_id, is_admin, MAIN_CHANNEL_URL, kb_main_func):
     welcome_text = f"💐 **به خدمات ملکی هوشمند «بروکر املاک» خوش آمدید** 💐\n\n🚀 کانال اصلی:\n{MAIN_CHANNEL_URL}"
-    await send_msg(cid, welcome_text, kb_main(is_admin))
+    # اصلاح: kb_main_func باید اجرا شود
+    main_kb = kb_main_func(is_admin) if callable(kb_main_func) else {}
+    await send_msg(cid, welcome_text, main_kb)
 
 # ۱۲. توابع علاقه‌مندی‌ها
 async def add_to_favorites(cid, user_id, prop_id):
@@ -152,6 +158,6 @@ async def show_favorites(cid, user_id, is_admin):
 async def remove_from_favorites(cid, user_id, prop_id):
     await send_msg(cid, "⚠️ بخش علاقه‌مندی‌ها در حال به‌روزرسانی است و به‌زودی در دسترس قرار می‌گیرد.")
 
-# ۱۳. تابع جستجوی فایل‌ها (برای رفع ارور Import در main.py)
+# ۱۳. تابع جستجوی فایل‌ها
 async def search_files(update, context):
     pass
