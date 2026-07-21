@@ -1,7 +1,10 @@
 # property.py
+from archive import search_files, show_results, handle_start_flow, parse_budget_text, push_history
+from core import set_session
 from keyboards import kb_khab, kb_budget_2khab, kb_budget_3khab, kb_meter_2khab, kb_meter_3khab, kb_main
 
 ADMIN_STATES = {}
+
 
 # 1. تبدیل متن دکمه متراژ به بازه عددی برای دیتابیس
 def get_meter_range(txt):
@@ -10,14 +13,15 @@ def get_meter_range(txt):
         "۸۰ الی ۱۰۰ متر": (80, 100),
         "۱۰۰ الی ۱۲۰ متر": (100, 120),
         "۱۲۰ متر به بالا": (120, 999),
-        "۱۰۰ الی ۱۲۵ متر": (100, 125),
+        "۱۰۰ الی ۱۱۲۵ متر": (100, 125),
         "۱۲۵ الی ۱۵۰ متر": (125, 150),
         "۱۵۰ الی ۱۷۰ متر": (150, 170),
         "۱۷۰ متر به بالا": (170, 999)
     }
     return m_map.get(txt, (0, 999))
 
-# 2. تبدیل متون دکمه‌های بودجه به عدد برای جلوگیری از تداخل در محاسبات و دیتابیس
+
+# 2. تبدیل متون دکمه‌های بودجه به عدد برای جلوگیری از تداخل
 def parse_range_budget(txt):
     try:
         if " الی " in txt and "میلیارد" in txt:
@@ -32,17 +36,19 @@ def parse_range_budget(txt):
         return None, None
     return None, None
 
+
 # 3. مدیریت عملیات و اکشن‌های کاربر
-async def handle_user_actions(cid, user_id, txt, s, is_admin, set_session, push_history,
-                              handle_start_flow, parse_budget_text, kb_custom_budget,
-                              kb_meter, search_files, show_results, kb_main_func, send_msg):
+async def handle_user_actions(cid, user_id, txt, s, is_admin, *args, **kwargs):
+    # توجه: پارامترهای اضافی از هندلر (args/kwargs) نادیده گرفته می‌شوند چون توابع را مستقیم import کردیم
     
     # 4. منوی اصلی و بازگشت‌ها
     if txt in ["/start", "بازگشت به منو اصلی"]:
         set_session(user_id, page=1, kind=None, khab=None, budje_min=None,
                     budje_max=None, meter_min=None, meter_max=None, history=[])
         push_history(user_id, "main")
-        await send_msg(cid, "به منوی اصلی بازگشتید.", kb_main_func(is_admin))
+        # استفاده از kb_main مستقیم از import
+        from core import send_msg
+        await send_msg(cid, "به منوی اصلی بازگشتید.", kb_main(is_admin))
         return
 
     elif txt in ["🏠 خرید", "🏠 فروش", "🔑 رهن و اجاره"]:
@@ -50,9 +56,9 @@ async def handle_user_actions(cid, user_id, txt, s, is_admin, set_session, push_
         await handle_start_flow(cid, user_id, kind_map[txt])
         return
 
-    # 5. مدیریت بودجه دستی (حفظ کامل برای رهن و اجاره و محاسبات)
+    # 5. مدیریت بودجه دستی (حفظ کامل منطق قبلی)
     elif ADMIN_STATES.get(user_id) in ["waiting_min_budget_flow", "waiting_max_budget_flow"]:
-        if any(x in txt for x in ["مشاهده همه", "📋 مشاهده همه فایل‌ها", "🔙 مرحله قبل", "بازگشت به منو اصلی", "💵 حداقل بودجه", "💵 حداکثر بودجه"]):
+        if any(x in txt for x in ["مشاهده همه", "📋 مشاهده همه فایل‌ها", "🔙 مرحله قبل", "بازگشت به منو اصلی"]):
             ADMIN_STATES[user_id] = None
         else:
             budget_val = parse_budget_text(txt)
@@ -60,10 +66,12 @@ async def handle_user_actions(cid, user_id, txt, s, is_admin, set_session, push_
             example_val = "10 میلیارد" if khab_val == "۱ خواب" else "15 میلیارد"
 
             if budget_val == 0:
+                from core import send_msg
                 await send_msg(cid, f"⚠️ لطفاً یک مبلغ معتبر وارد کنید (مثال؛ {example_val}):")
                 return
 
             state = ADMIN_STATES.pop(user_id, None)
+            from core import send_msg
             if state == "waiting_min_budget_flow":
                 set_session(user_id, budje_min=budget_val)
                 kb = kb_budget_2khab() if khab_val == "۲ خواب" else kb_budget_3khab() if khab_val == "۳ خواب" else kb_budget_2khab()
@@ -81,6 +89,7 @@ async def handle_user_actions(cid, user_id, txt, s, is_admin, set_session, push_
         ADMIN_STATES[user_id] = "waiting_min_budget_flow" if is_min else "waiting_max_budget_flow"
         khab_val = s.get("khab", "۱ خواب")
         ex = "10 میلیارد" if is_min else "20 میلیارد"
+        from core import send_msg
         await send_msg(cid, f"✍️ {'حداقل' if is_min else 'حداکثر'} بودجه خود را بنویسید (مثال؛ {ex}):")
         return
 
@@ -98,6 +107,7 @@ async def handle_user_actions(cid, user_id, txt, s, is_admin, set_session, push_
         else:
             current_kb = kb_budget_2khab() 
 
+        from core import send_msg
         await send_msg(cid, f"بودجه مورد نظر برای {final_khab} را تعیین کنید یا همه فایل‌ها را ببینید:", current_kb)
         return
 
@@ -108,6 +118,7 @@ async def handle_user_actions(cid, user_id, txt, s, is_admin, set_session, push_
             set_session(user_id, budje_min=b_min, budje_max=b_max)
         
         khab_val = s.get("khab")
+        from core import send_msg
         if khab_val == "۲ خواب":
             await send_msg(cid, "حدود متراژ ملک را انتخاب کنید:", kb_meter_2khab())
         elif khab_val == "۳ خواب":
@@ -116,7 +127,7 @@ async def handle_user_actions(cid, user_id, txt, s, is_admin, set_session, push_
             await send_msg(cid, "حدود متراژ ملک را انتخاب کنید:", kb_meter_2khab())
         return
 
-    # 8. مشاهده همه فایل‌ها (هماهنگ با دکمه جدید)
+    # 8. مشاهده همه فایل‌ها
     elif "مشاهده همه" in txt or "📋 مشاهده همه فایل‌ها" in txt:
         ADMIN_STATES[user_id] = None
         res = search_files(s.get("kind"), s.get("khab"), None, None, None, None, 1)
