@@ -1,10 +1,8 @@
 # rent_property.py
-from core import set_session, push_history, send_msg
+from core import set_session, push_history, send_msg, search_files, show_results
 from keyboards import (
     kb_khab as kb_khab_selection,  # سازگاری نام کیبورد
 )
-from core import search_files
-from results import show_results  # تابع نمایش نتایج را ایمپورت کن
 
 
 async def handle_rent_flow(cid, user_id, s, txt):
