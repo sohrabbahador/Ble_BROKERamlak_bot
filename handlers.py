@@ -8,6 +8,7 @@ from config import ADMIN_ID, MAIN_CHANNEL_URL, TOKEN, db
 from core import get_session, register_user, save_file, send_msg, send_pic, set_session
 from keyboards import kb_main
 from property import handle_user_actions
+from .rent_property import handle_rent_flow
 
 async def is_member(user_id):
     try:
