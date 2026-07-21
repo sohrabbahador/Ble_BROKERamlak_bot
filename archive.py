@@ -1,6 +1,5 @@
 import json
 import re
-
 from config import db
 from core import (
     get_next_sequence_value,
@@ -11,16 +10,17 @@ from core import (
 )
 from keyboards import (
     inline_action,
-    kb_custom_budget,
     kb_khab,
     kb_main,
-    kb_meter,
     kb_next,
+    kb_budget_2khab,
+    kb_budget_3khab,
+    kb_meter_2khab,
+    kb_meter_3khab
 )
 
 # --- متغیر سراسری برای ذخیره کاربران هشدار دیده ---
 warned_users = set()
-
 
 # ۱. تبدیل متن‌های حاوی مبالغ به عدد خالص
 def parse_budget_text(text: str) -> int:
@@ -36,7 +36,6 @@ def parse_budget_text(text: str) -> int:
         return int(val * 10**6)
     return int(val * 10**9) if val < 10000 else int(val)
 
-
 # ۲. مدیریت تاریخچه مراحل در سشن
 def push_history(user_id, state_name):
     s = get_session(user_id) or {}
@@ -44,7 +43,6 @@ def push_history(user_id, state_name):
     if not history or history[-1] != state_name:
         history.append(state_name)
     set_session(user_id, history=history)
-
 
 # ۳. نمایش لیست املاک پیدا شده
 async def show_results(cid, res, is_admin):
@@ -64,83 +62,44 @@ async def show_results(cid, res, is_admin):
             await send_msg(cid, cap, inline_action(r["id"]))
     await send_msg(cid, "📄 برای مشاهده گزینه‌های بیشتر:", kb_next())
 
-
 # ۴. مدیریت بازگشت به مرحله قبلی
 async def handle_back_step(cid, user_id, is_admin):
     s = get_session(user_id) or {}
     history = s.get("history", [])
     if len(history) <= 1:
-        set_session(
-            user_id,
-            page=1,
-            kind=None,
-            khab=None,
-            budje_min=None,
-            budje_max=None,
-            meter_min=None,
-            meter_max=None,
-            history=[],
-        )
+        set_session(user_id, page=1, kind=None, khab=None, budje_min=None, budje_max=None, meter_min=None, meter_max=None, history=[])
         await send_msg(cid, "به منوی اصلی بازگشتید:", kb_main(is_admin))
         return
 
     history.pop()
-    prev_state = history[-1]
+    prev_state = history[-1] if history else "main"
     set_session(user_id, history=history)
 
     if prev_state == "main":
-        set_session(
-            user_id,
-            page=1,
-            kind=None,
-            khab=None,
-            budje_min=None,
-            budje_max=None,
-            meter_min=None,
-            meter_max=None,
-        )
         await send_msg(cid, "نوع عملیات مورد نظرتان را انتخاب کنید:", kb_main(is_admin))
     elif prev_state == "select_khab":
-        set_session(
-            user_id,
-            khab=None,
-            budje_min=None,
-            budje_max=None,
-            meter_min=None,
-            meter_max=None,
-        )
+        set_session(user_id, khab=None, budje_min=None, budje_max=None, meter_min=None, meter_max=None)
         await send_msg(cid, "تعداد اتاق خواب مورد نظرتان را انتخاب کنید:", kb_khab())
     elif prev_state == "select_budget":
-        set_session(user_id, budje_min=None, budje_max=None, meter_min=None, meter_max=None)
-        khab = s.get("khab")
-        await send_msg(cid, f"تنظیمات بودجه ملک {khab}ه:", kb_custom_budget(khab))
+        khab = s.get("khab", "۱ خواب")
+        kb = kb_budget_2khab() if khab == "۲ خواب" else kb_budget_3khab() if khab == "۳ خواب" else kb_budget_2khab()
+        await send_msg(cid, f"تنظیمات بودجه ملک {khab}ه:", kb)
     elif prev_state == "select_meter":
-        set_session(user_id, meter_min=None, meter_max=None)
-        await send_msg(cid, "حدود متراژ ملک را انتخاب کنید:", kb_meter())
-
+        khab = s.get("khab", "۱ خواب")
+        kb_m = kb_meter_2khab() if khab == "۲ خواب" else kb_meter_3khab() if khab == "۳ خواب" else kb_meter_2khab()
+        await send_msg(cid, "حدود متراژ ملک را انتخاب کنید:", kb_m)
 
 # ۵. شروع جستجوی جدید
 async def handle_start_flow(cid, user_id, kind):
-    set_session(
-        user_id,
-        kind=kind,
-        page=1,
-        khab=None,
-        budje_min=None,
-        budje_max=None,
-        meter_min=None,
-        meter_max=None,
-        history=[],
-    )
+    set_session(user_id, kind=kind, page=1, khab=None, budje_min=None, budje_max=None, meter_min=None, meter_max=None, history=[])
     push_history(user_id, "main")
     click_field = "buy_clicks" if kind == "خرید" else "rent_clicks"
     db["stats"].update_one({"_id": "clicks"}, {"$inc": {click_field: 1}}, upsert=True)
     push_history(user_id, "select_khab")
     await send_msg(cid, "تعداد اتاق خواب مورد نظرتان را انتخاب کنید:", kb_khab())
 
-
 # ۶. نمایش پشتیبانی
-async def show_support(cid, send_msg):
+async def show_support(cid):
     await send_msg(
         cid,
         "📞 **پشتیبانی بروکر**\n\nبا کلیک روی دکمه‌های زیر تماس بگیرید یا پیام دهید:",
@@ -155,26 +114,22 @@ async def show_support(cid, send_msg):
         },
     )
 
-
 # ۷. ثبت در بخش گوش‌به‌زنگ
 async def register_alert(cid, user_id, s):
     if s and s.get("kind"):
-        db["alerts"].insert_one(
-            {
-                "id": get_next_sequence_value("alert_id"),
-                "user_id": user_id,
-                "kind": s.get("kind"),
-                "khab": s.get("khab"),
-                "budje_min": s.get("budje_min"),
-                "budje_max": s.get("budje_max"),
-                "meter_min": s.get("meter_min"),
-                "meter_max": s.get("meter_max"),
-            }
-        )
+        db["alerts"].insert_one({
+            "id": get_next_sequence_value("alert_id"),
+            "user_id": user_id,
+            "kind": s.get("kind"),
+            "khab": s.get("khab"),
+            "budje_min": s.get("budje_min"),
+            "budje_max": s.get("budje_max"),
+            "meter_min": s.get("meter_min"),
+            "meter_max": s.get("meter_max"),
+        })
         await send_msg(cid, "✅ فیلترهای جستجوی شما در بخش گوش‌به‌زنگ ثبت شد!")
     else:
         await send_msg(cid, "⚠️ ابتدا باید یکبار از طریق دکمه‌های منو جستجوی ملک را کامل کنید.")
-
 
 # ۸. دریافت آمار کلی ربات
 async def get_bot_stats():
@@ -187,32 +142,16 @@ async def get_bot_stats():
         f"🔑 کلیک رهن: {stats.get('rent_clicks', 0)}"
     )
 
-
 # ۹. دریافت لیست کاربران
 def get_users_list():
     users = list(db["users"].find({}, {"user_id": 1, "first_name": 1}))
-    return "\n".join(
-        [f"• `{u['user_id']}` ({u.get('first_name', 'بدون نام')})" for u in users]
-    )
-
+    return "\n".join([f"• `{u['user_id']}` ({u.get('first_name', 'بدون نام')})" for u in users])
 
 # ۱۰. مدیریت عضویت
-async def handle_membership_flow(
-    cid, user_id, is_admin, cb_data, txt, send_msg, MAIN_CHANNEL_URL, kb_main, is_member_func
-):
+async def handle_membership_flow(cid, user_id, is_admin, cb_data, txt, MAIN_CHANNEL_URL, kb_main, is_member_func):
     global warned_users
-
-    MEMBERSHIP_TEXTS = {
-        "full": (
-            "🔔 *برای استفاده از منوی خدمات، لطفاً ابتدا عضو کانال شوید*.\n\n"
-            "🔄 *پس از عضویت، برگردید و ادامه دهید.*"
-        ),
-        "short": "❌ **هنوز عضو نشدید!**\nلطفاً ابتدا عضو شوید و سپس برگردید.",
-    }
-
     if is_admin or await is_member_func(user_id):
-        if user_id in warned_users:
-            warned_users.remove(user_id)
+        if user_id in warned_users: warned_users.remove(user_id)
         return False
 
     inline_kb = {
@@ -221,35 +160,27 @@ async def handle_membership_flow(
             [{"text": "✅ عضو شدم", "callback_data": "check_membership"}],
         ]
     }
-
-    main_kb = kb_main(is_admin)
-
     if user_id in warned_users:
-        message = MEMBERSHIP_TEXTS["short"]
+        message = "❌ **هنوز عضو نشدید!**\nلطفاً ابتدا عضو شوید و سپس برگردید."
     else:
-        message = MEMBERSHIP_TEXTS["full"].format(url=MAIN_CHANNEL_URL)
+        message = f"🔔 *برای استفاده از منوی خدمات، لطفاً ابتدا عضو کانال شوید*.\n\n🚀 {MAIN_CHANNEL_URL}\n\n🔄 *پس از عضویت، برگردید و ادامه دهید.*"
         warned_users.add(user_id)
-
+    
     await send_msg(cid, message, inline_kb)
-    await send_msg(cid, "🔹 لطفاً پس از عضویت، دکمه تایید را بزنید.", main_kb)
-
+    await send_msg(cid, "🔹 لطفاً پس از عضویت، دکمه تایید را بزنید.", kb_main(is_admin))
     return True
 
-
 # ۱۱. ارسال پیام خوش‌آمدگویی
-async def send_welcome_message(cid, name, is_admin, send_msg, MAIN_CHANNEL_URL, kb_main):
+async def send_welcome_message(cid, name, is_admin, MAIN_CHANNEL_URL, kb_main):
     welcome_text = f"💐 **به خدمات ملکی هوشمند «بروکر املاک» خوش آمدید** 💐\n\n🚀 کانال اصلی:\n{MAIN_CHANNEL_URL}"
     await send_msg(cid, welcome_text, kb_main(is_admin))
 
-
 # ۱۲. توابع علاقه‌مندی‌ها
-async def add_to_favorites(cid, user_id, prop_id, send_msg):
+async def add_to_favorites(cid, user_id, prop_id):
     await send_msg(cid, "⚠️ بخش علاقه‌مندی‌ها در حال به‌روزرسانی است و به‌زودی در دسترس قرار می‌گیرد.")
 
-
-async def show_favorites(cid, user_id, send_msg, is_admin):
+async def show_favorites(cid, user_id, is_admin):
     await send_msg(cid, "⚠️ بخش علاقه‌مندی‌ها در حال به‌روزرسانی است و به‌زودی در دسترس قرار می‌گیرد.")
 
-
-async def remove_from_favorites(cid, user_id, prop_id, send_msg):
+async def remove_from_favorites(cid, user_id, prop_id):
     await send_msg(cid, "⚠️ بخش علاقه‌مندی‌ها در حال به‌روزرسانی است و به‌زودی در دسترس قرار می‌گیرد.")
