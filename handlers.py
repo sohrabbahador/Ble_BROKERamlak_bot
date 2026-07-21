@@ -6,28 +6,24 @@ from archive import (add_to_favorites, get_bot_stats, get_users_list, handle_bac
                      send_welcome_message, show_favorites, show_results, show_support)
 from config import ADMIN_ID, MAIN_CHANNEL_URL, TOKEN, db
 from core import get_session, register_user, save_file, send_msg, send_pic, set_session
-from keyboards import kb_main 
+from keyboards import kb_main
 from property import handle_user_actions
 
-# --- بررسی عضویت کاربر در کانال ---
 async def is_member(user_id):
     try:
-        channel_username = MAIN_CHANNEL_URL.split("/")[-1]
-        channel_username = f"@{channel_username}" if not channel_username.startswith("@") else channel_username
+        ch_username = MAIN_CHANNEL_URL.split("/")[-1]
+        ch_username = f"@{ch_username}" if not ch_username.startswith("@") else ch_username
         api_url = f"https://tapi.bale.ai/bot{TOKEN}/getChatMember"
         async with httpx.AsyncClient() as client:
-            resp = await client.post(api_url, json={"chat_id": channel_username, "user_id": user_id}, timeout=10)
+            resp = await client.post(api_url, json={"chat_id": ch_username, "user_id": user_id}, timeout=10)
             data = resp.json()
             return data.get("ok") and data["result"].get("status") in ["member", "administrator", "creator"]
     except:
         return False
 
-# --- پردازش اصلی پیام‌های دریافتی از وب‌هوک ---
 async def process_bale_webhook(data: dict):
     try:
-        cb_data = data.get("callback_query")
-        msg_data = data.get("message") or data.get("edited_message") or data.get("body")
-        
+        cb_data, msg_data = data.get("callback_query"), data.get("message") or data.get("edited_message") or data.get("body")
         if cb_data:
             cid, chat_type, txt = cb_data["message"]["chat"]["id"], cb_data["message"]["chat"]["type"], cb_data.get("data", "")
         elif msg_data:
@@ -35,26 +31,21 @@ async def process_bale_webhook(data: dict):
         else:
             return
             
-        if not cid:
-            return
-            
+        if not cid: return
         user_id, is_admin = cid, cid == ADMIN_ID
         
-        # --- مدیریت پیام‌های ارسالی در کانال ---
         if chat_type == "channel":
             if msg_data and "photo" in msg_data and "موجود" in txt:
                 await save_file(txt, [msg_data["photo"][-1]["file_id"]])
             return
             
-        # --- مدیریت تعاملات در چت خصوصی ---
         if chat_type == "private":
             if txt == "/start":
                 name = msg_data.get("from", {}).get("first_name", "کاربر") if msg_data else "کاربر"
                 register_user(cid, name)
-                await send_welcome_message(cid, name, is_admin, send_msg, MAIN_CHANNEL_URL, kb_main)
+                await send_welcome_message(cid, name, user_id, is_admin, MAIN_CHANNEL_URL, kb_main)
                 return
             
-            # --- تایید عضویت کاربر ---
             if cb_data and txt == "check_membership":
                 if await is_member(user_id):
                     await send_msg(cid, "✅ عضویت شما تایید شد. اکنون می‌توانید از تمامی خدمات استفاده کنید.", kb_main(is_admin))
@@ -62,21 +53,18 @@ async def process_bale_webhook(data: dict):
                     await send_msg(cid, "❌ شما هنوز عضو نشده‌اید! لطفاً ابتدا عضو شوید و سپس دکمه تایید را بزنید.", None)
                 return
             
-            # --- سد دفاعی (بررسی اجباری بودن عضویت) ---
-            if await handle_membership_flow(cid, user_id, is_admin, cb_data, txt, send_msg, MAIN_CHANNEL_URL, kb_main, is_member):
+            if await handle_membership_flow(cid, user_id, is_admin, cb_data, txt, MAIN_CHANNEL_URL, kb_main, is_member):
                 return
             
-            # --- مدیریت علاقه‌مندی‌ها ---
             if cb_data and txt.startswith("fav:"):
-                await add_to_favorites(cid, user_id, int(txt.split(":")[1]), send_msg)
+                await add_to_favorites(cid, user_id, int(txt.split(":")[1]))
                 return
             if cb_data and txt.startswith("del_fav:"):
-                await remove_from_favorites(cid, user_id, int(txt.split(":")[1]), send_msg)
+                await remove_from_favorites(cid, user_id, int(txt.split(":")[1]))
                 return
                 
             s = get_session(user_id) or {}
             
-            # --- بخش پنل مدیریت ---
             if is_admin:
                 if "📊 آمار ربات" in txt:
                     await send_msg(cid, await get_bot_stats())
@@ -95,31 +83,21 @@ async def process_bale_webhook(data: dict):
                         db["admin_state"].update_one({"_id": cid}, {"$set": {"waiting_broadcast": False}}, upsert=True)
                         await send_msg(cid, "به منوی اصلی بازگشتید:", kb_main(is_admin))
                     else:
-                        success = 0
-                        for u in db["users"].find({}, {"user_id": 1}):
-                            if await send_msg(u["user_id"], f"📢 **پیام مدیریت:**\n\n{txt}"):
-                                success += 1
+                        success = sum(1 for u in db["users"].find({}, {"user_id": 1}) if await send_msg(u["user_id"], f"📢 **پیام مدیریت:**\n\n{txt}"))
                         db["admin_state"].update_one({"_id": cid}, {"$set": {"waiting_broadcast": False}}, upsert=True)
                         await send_msg(cid, f"✅ پیام به {success} کاربر ارسال شد.")
                     return
 
-            # --- پردازش دستورات عمومی و منوی کاربری ---
             if "🔙 مرحله قبل" in txt:
                 await handle_back_step(cid, user_id, is_admin)
-                return
             elif "علاقه‌مندی‌ها" in txt:
-                await show_favorites(cid, user_id, send_msg, is_admin)
-                return
+                await show_favorites(cid, user_id, is_admin)
             elif "پشتیبانی" in txt:
-                await show_support(cid, send_msg)
-                return
+                await show_support(cid)
             elif "گوش‌به‌زنگ" in txt:
                 await register_alert(cid, user_id, s)
-                return
-
-            # --- مدیریت عملیات املاک و جستجوی فایل‌ها ---
-            # تمام منطق (شامل خرید، فروش، متراژ، بودجه و جستجوی سریع) را به property سپردیم
-            await handle_user_actions(cid, user_id, txt, s, is_admin)
+            else:
+                await handle_user_actions(cid, user_id, txt, s, is_admin)
 
     except Exception as e:
         print(f"Error in process_bale_webhook: {e}")
