@@ -12,16 +12,6 @@ def kb_next():
 # --- متغیر سراسری برای ذخیره کاربران هشدار دیده ---
 warned_users = set()
 
-# ۱. تبدیل متن‌های حاوی مبالغ به عدد خالص
-def parse_budget_text(text: str) -> int:
-    persian_to_english = str.maketrans('۰۱۲۳۴۵۶۷۸۹', '0123456789')
-    text = text.translate(persian_to_english).lower().strip()
-    numbers = re.findall(r"\d+\.\d+|\d+", text)
-    if not numbers: return 0
-    val = float(numbers[0])
-    if any(x in text for x in ["میلیارد", "milliard", "b"]): return int(val * 10**9)
-    elif any(x in text for x in ["میلیون", "million", "m"]): return int(val * 10**6)
-    return int(val * 10**9) if val < 10000 else int(val)
 
 # ۲. مدیریت تاریخچه مراحل در سشن
 def push_history(user_id, state_name):
