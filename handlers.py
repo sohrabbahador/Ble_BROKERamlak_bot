@@ -1,104 +1,83 @@
-import json
 import httpx
-from archive import (add_to_favorites, get_bot_stats, get_users_list, handle_back_step,
-                     handle_membership_flow, handle_start_flow, parse_budget_text,
-                     push_history, register_alert, remove_from_favorites,
-                     send_welcome_message, show_favorites, show_results, show_support)
+from archive import add_to_favorites, get_bot_stats, get_users_list, handle_back_step, handle_membership_flow, register_alert, remove_from_favorites, send_welcome_message, show_favorites, show_support
 from config import ADMIN_ID, MAIN_CHANNEL_URL, TOKEN, db
-from core import get_session, register_user, save_file, send_msg, send_pic, set_session
+from core import get_session, register_user, save_file, send_msg
 from keyboards import kb_main
 from property import handle_user_actions
 from .rent_property import handle_rent_flow
 
 async def is_member(user_id):
     try:
-        ch_username = MAIN_CHANNEL_URL.split("/")[-1]
-        ch_username = f"@{ch_username}" if not ch_username.startswith("@") else ch_username
-        api_url = f"https://tapi.bale.ai/bot{TOKEN}/getChatMember"
-        async with httpx.AsyncClient() as client:
-            resp = await client.post(api_url, json={"chat_id": ch_username, "user_id": user_id}, timeout=10)
-            data = resp.json()
-            return data.get("ok") and data["result"].get("status") in ["member", "administrator", "creator"]
-    except:
-        return False
+        u = f"@{MAIN_CHANNEL_URL.split('/')[-1].lstrip('@')}"
+        async with httpx.AsyncClient() as c:
+            r = await c.post(f"https://tapi.bale.ai/bot{TOKEN}/getChatMember", json={"chat_id": u, "user_id": user_id}, timeout=10)
+            return r.json().get("ok") and r.json()["result"].get("status") in ["member", "administrator", "creator"]
+    except: return False
 
-async def process_bale_webhook(data: dict):
+async def process_bale_webhook(d: dict):
     try:
-        cb_data, msg_data = data.get("callback_query"), data.get("message") or data.get("edited_message") or data.get("body")
-        if cb_data:
-            cid, chat_type, txt = cb_data["message"]["chat"]["id"], cb_data["message"]["chat"]["type"], cb_data.get("data", "")
-        elif msg_data:
-            cid, chat_type, txt = msg_data.get("chat", {}).get("id"), msg_data.get("chat", {}).get("type"), msg_data.get("text", "") or msg_data.get("caption", "")
-        else:
-            return
-            
+        cb, msg = d.get("callback_query"), d.get("message") or d.get("edited_message") or d.get("body")
+        if cb: cid, ct, txt = cb["message"]["chat"]["id"], cb["message"]["chat"]["type"], cb.get("data", "")
+        elif msg: cid, ct, txt = msg.get("chat", {}).get("id"), msg.get("chat", {}).get("type"), msg.get("text", "") or msg.get("caption", "")
+        else: return
         if not cid: return
-        user_id, is_admin = cid, cid == ADMIN_ID
+        uid, adm = cid, cid == ADMIN_ID
         
-        if chat_type == "channel":
-            if msg_data and "photo" in msg_data and "موجود" in txt:
-                await save_file(txt, [msg_data["photo"][-1]["file_id"]])
+        # 1. مدیریت پیام‌های کانال و ذخیره فایل
+        if ct == "channel":
+            if msg and "photo" in msg and "موجود" in txt: await save_file(txt, [msg["photo"][-1]["file_id"]])
             return
             
-        if chat_type == "private":
+        # 2. مدیریت چت‌های شخصی و دستورات اولیه
+        if ct == "private":
             if txt == "/start":
-                name = msg_data.get("from", {}).get("first_name", "کاربر") if msg_data else "کاربر"
+                name = (msg.get("from", {}) if msg else {}).get("first_name", "کاربر")
                 register_user(cid, name)
-                await send_welcome_message(cid, name, user_id, is_admin, MAIN_CHANNEL_URL, kb_main)
+                await send_welcome_message(cid, name, uid, adm, MAIN_CHANNEL_URL, kb_main)
                 return
             
-            if cb_data and txt == "check_membership":
-                if await is_member(user_id):
-                    await send_msg(cid, "✅ عضویت شما تایید شد. اکنون می‌توانید از تمامی خدمات استفاده کنید.", kb_main(is_admin))
-                else:
-                    await send_msg(cid, "❌ شما هنوز عضو نشده‌اید! لطفاً ابتدا عضو شوید و سپس دکمه تایید را بزنید.", None)
+            if cb and txt == "check_membership":
+                ok = await is_member(uid)
+                await send_msg(cid, "✅ عضویت شما تایید شد. اکنون می‌توانید از تمامی خدمات استفاده کنید." if ok else "❌ شما هنوز عضو نشده‌اید! لطفاً ابتدا عضو شوید و سپس دکمه تایید را بزنید.", kb_main(adm) if ok else None)
                 return
             
-            if await handle_membership_flow(cid, user_id, is_admin, cb_data, txt, MAIN_CHANNEL_URL, kb_main, is_member):
-                return
+            if await handle_membership_flow(cid, uid, adm, cb, txt, MAIN_CHANNEL_URL, kb_main, is_member): return
             
-            if cb_data and txt.startswith("fav:"):
-                await add_to_favorites(cid, user_id, int(txt.split(":")[1]))
+            if cb and txt.startswith("fav:"):
+                await add_to_favorites(cid, uid, int(txt.split(":")[1]))
                 return
-            if cb_data and txt.startswith("del_fav:"):
-                await remove_from_favorites(cid, user_id, int(txt.split(":")[1]))
+            if cb and txt.startswith("del_fav:"):
+                await remove_from_favorites(cid, uid, int(txt.split(":")[1]))
                 return
                 
-            s = get_session(user_id) or {}
+            s = get_session(uid) or {}
             
-            if is_admin:
-                if "📊 آمار ربات" in txt:
-                    await send_msg(cid, await get_bot_stats())
-                    return
-                elif "👥 لیست کاربران" in txt:
-                    await send_msg(cid, get_users_list())
-                    return
+            # 3. مدیریت امکانات ویژه ادمین
+            if adm:
+                if "📊 آمار ربات" in txt: await send_msg(cid, await get_bot_stats()); return
+                elif "👥 لیست کاربران" in txt: await send_msg(cid, get_users_list()); return
                 elif "📢 ارسال همگانی" in txt:
                     db["admin_state"].update_one({"_id": cid}, {"$set": {"waiting_broadcast": True}}, upsert=True)
                     await send_msg(cid, "✍️ متن پیام را بفرستید:")
                     return
                 
-                admin_state = db["admin_state"].find_one({"_id": cid}) or {}
-                if admin_state.get("waiting_broadcast"):
+                if (db["admin_state"].find_one({"_id": cid}) or {}).get("waiting_broadcast"):
                     if "بازگشت به منو اصلی" in txt:
                         db["admin_state"].update_one({"_id": cid}, {"$set": {"waiting_broadcast": False}}, upsert=True)
-                        await send_msg(cid, "به منوی اصلی بازگشتید:", kb_main(is_admin))
+                        await send_msg(cid, "به منوی اصلی بازگشتید:", kb_main(adm))
                     else:
-                        success = sum(1 for u in db["users"].find({}, {"user_id": 1}) if await send_msg(u["user_id"], f"📢 **پیام مدیریت:**\n\n{txt}"))
+                        sc = sum(1 for u in db["users"].find({}, {"user_id": 1}) if await send_msg(u["user_id"], f"📢 **پیام مدیریت:**\n\n{txt}"))
                         db["admin_state"].update_one({"_id": cid}, {"$set": {"waiting_broadcast": False}}, upsert=True)
-                        await send_msg(cid, f"✅ پیام به {success} کاربر ارسال شد.")
+                        await send_msg(cid, f"✅ پیام به {sc} کاربر ارسال شد.")
                     return
 
-            if "🔙 مرحله قبل" in txt:
-                await handle_back_step(cid, user_id, is_admin)
-            elif "علاقه‌مندی‌ها" in txt:
-                await show_favorites(cid, user_id, is_admin)
-            elif "پشتیبانی" in txt:
-                await show_support(cid)
-            elif "گوش‌به‌زنگ" in txt:
-                await register_alert(cid, user_id, s)
+            # 4. مدیریت منوهای عمومی و تفکیک مسیر رهن و خرید
+            if "🔙 مرحله قبل" in txt: await handle_back_step(cid, uid, adm)
+            elif "علاقه‌مندی‌ها" in txt: await show_favorites(cid, uid, adm)
+            elif "پشتیبانی" in txt: await show_support(cid)
+            elif "گوش‌به‌زنگ" in txt: await register_alert(cid, uid, s)
             else:
-                await handle_user_actions(cid, user_id, txt, s, is_admin)
-
+                if txt == "رهن و اجاره": await handle_rent_flow(cid, uid, s, txt)
+                else: await handle_user_actions(cid, uid, txt, s, adm)
     except Exception as e:
         print(f"Error in process_bale_webhook: {e}")
