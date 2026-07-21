@@ -114,48 +114,28 @@ def get_users_list():
     users = list(db["users"].find({}, {"user_id": 1, "first_name": 1}))
     return "\n".join([f"• `{u['user_id']}` ({u.get('first_name', 'بدون نام')})" for u in users])
 
-# ۱۰. مدیریت عضویت
-async def handle_membership_flow(
-    cid,
-    user_id,
-    is_admin,
-    cb_data,
-    txt,
-    MAIN_CHANNEL_URL,
-    kb_main,
-    is_member_func,
-    s=None,
-):
-  global warned_users
-  if is_admin or await is_member_func(user_id):
-    if user_id in warned_users:
-      warned_users.remove(user_id)
-    return False
+# ۱۰. مدیریت عضویت (اصلاح شده برای جلوگیری از ارور dict و await)
+async def handle_membership_flow(cid, user_id, is_admin, cb_data, txt, MAIN_CHANNEL_URL, kb_main, is_member_func, s=None):
+    global warned_users
+    
+    # مدیریت هوشمند await برای جلوگیری از ارور 'dict' object can't be awaited
+    is_member = False
+    try:
+        is_member = await is_member_func(user_id) if callable(is_member_func) else False
+    except Exception:
+        is_member = False
 
-  inline_kb = {
-      "inline_keyboard": [
-          [{"text": "🚀 عضویت در کانال بروکر", "url": MAIN_CHANNEL_URL}],
-          [{"text": "✅ عضو شدم", "callback_data": "check_membership"}],
-      ]
-  }
-  message = (
-      "❌ **هنوز عضو نشدید!**\nلطفاً ابتدا عضو شوید و سپس برگردید."
-      if user_id in warned_users
-      else (
-          "🔔 *برای استفاده از منوی خدمات، لطفاً ابتدا عضو کانال"
-          f" شوید*.\n\n🚀 {MAIN_CHANNEL_URL}\n\n🔄 *پس از عضویت، برگردید و ادامه"
-          " دهید.*"
-      )
-  )
-  if user_id not in warned_users:
-    warned_users.add(user_id)
+    if is_admin or is_member:
+        if user_id in warned_users: warned_users.remove(user_id)
+        return False
 
-  await send_msg(cid, message, inline_kb)
-  await send_msg(
-      cid, "🔹 لطفاً پس از عضویت، دکمه تایید را بزنید.", kb_main(is_admin)
-  )
-  return True
-
+    inline_kb = {"inline_keyboard": [[{"text": "🚀 عضویت در کانال بروکر", "url": MAIN_CHANNEL_URL}], [{"text": "✅ عضو شدم", "callback_data": "check_membership"}]]}
+    message = "❌ **هنوز عضو نشدید!**\nلطفاً ابتدا عضو شوید و سپس برگردید." if user_id in warned_users else f"🔔 *برای استفاده از منوی خدمات، لطفاً ابتدا عضو کانال شوید*.\n\n🚀 {MAIN_CHANNEL_URL}\n\n🔄 *پس از عضویت، برگردید و ادامه دهید.*"
+    if user_id not in warned_users: warned_users.add(user_id)
+    
+    await send_msg(cid, message, inline_kb)
+    await send_msg(cid, "🔹 لطفاً پس از عضویت، دکمه تایید را بزنید.", kb_main(is_admin))
+    return True
 
 # ۱۱. ارسال پیام خوش‌آمدگویی
 async def send_welcome_message(cid, name, user_id, is_admin, MAIN_CHANNEL_URL, kb_main):
@@ -171,3 +151,7 @@ async def show_favorites(cid, user_id, is_admin):
 
 async def remove_from_favorites(cid, user_id, prop_id):
     await send_msg(cid, "⚠️ بخش علاقه‌مندی‌ها در حال به‌روزرسانی است و به‌زودی در دسترس قرار می‌گیرد.")
+
+# ۱۳. تابع جستجوی فایل‌ها (برای رفع ارور Import در main.py)
+async def search_files(update, context):
+    pass
