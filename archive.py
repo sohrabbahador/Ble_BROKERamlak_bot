@@ -138,7 +138,7 @@ async def handle_membership_flow(cid, user_id, is_admin, cb_data, txt, MAIN_CHAN
     await send_msg(cid, message, inline_kb)
     
     # اصلاح حیاتی: kb_main_func باید اجرا شود تا دیکشنری برگرداند، نه اینکه خود تابع فرستاده شود
-    main_kb = kb_main_func(is_admin) if callable(kb_main_func) else {}
+    main_kb = kb_main_func(is_admin) if callable(kb_main_func) else kb_main_func
     await send_msg(cid, "🔹 لطفاً پس از عضویت، دکمه تایید را بزنید.", main_kb)
     return True
 
