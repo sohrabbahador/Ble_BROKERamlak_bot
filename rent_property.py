@@ -1,5 +1,5 @@
 # rent_property.py
-from utils import set_session, push_history, send_msg
+from core import set_session, push_history, send_msg
 from keyboards import (
     kb_khab_selection,  # فرض می‌کنم کیبورد انتخاب خواب مشترک است
 )
