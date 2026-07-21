@@ -242,3 +242,22 @@ def push_history(user_id, step_name):
         {"$push": {"history": {"$each": [step_name], "$slice": -10}}},
         upsert=True
     )
+async def show_results(cid, res, is_fav=False):
+    """تابع نمایش نتایج املاک در چت"""
+    if not res:
+        await send_msg(cid, "❌ هیچ ملکی با این مشخصات یافت نشد.")
+        return
+        
+    for item in res:
+        photos = json.loads(item.get("photos", "[]"))
+        cap = item.get("text", "")
+        fid = item.get("id")
+        
+        from keyboards import inline_action
+        kb = inline_action(fid, is_fav)
+        
+        if photos:
+            await send_pic(cid, photos[0], cap, kb)
+        else:
+            await send_msg(cid, cap, kb)
+        
