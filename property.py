@@ -26,7 +26,7 @@ def parse_range_budget(txt):
     return None, None
 
 async def handle_user_actions(cid, user_id, txt, s, is_admin, *args, **kwargs):
-    from core import send_msg, set_session
+    from core import search_files, show_results, handle_start_flow, parse_budget_text, push_history
     from archive import search_files, show_results, handle_start_flow, parse_budget_text, push_history
     from keyboards import kb_main, kb_budget_2khab, kb_budget_3khab, kb_meter_2khab, kb_meter_3khab
 
