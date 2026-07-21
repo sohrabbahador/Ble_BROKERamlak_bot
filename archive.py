@@ -115,19 +115,47 @@ def get_users_list():
     return "\n".join([f"• `{u['user_id']}` ({u.get('first_name', 'بدون نام')})" for u in users])
 
 # ۱۰. مدیریت عضویت
-async def handle_membership_flow(cid, user_id, is_admin, cb_data, txt, MAIN_CHANNEL_URL, kb_main, is_member_func):
-    global warned_users
-    if is_admin or await is_member_func(user_id):
-        if user_id in warned_users: warned_users.remove(user_id)
-        return False
+async def handle_membership_flow(
+    cid,
+    user_id,
+    is_admin,
+    cb_data,
+    txt,
+    MAIN_CHANNEL_URL,
+    kb_main,
+    is_member_func,
+    s=None,
+):
+  global warned_users
+  if is_admin or await is_member_func(user_id):
+    if user_id in warned_users:
+      warned_users.remove(user_id)
+    return False
 
-    inline_kb = {"inline_keyboard": [[{"text": "🚀 عضویت در کانال بروکر", "url": MAIN_CHANNEL_URL}], [{"text": "✅ عضو شدم", "callback_data": "check_membership"}]]}
-    message = "❌ **هنوز عضو نشدید!**\nلطفاً ابتدا عضو شوید و سپس برگردید." if user_id in warned_users else f"🔔 *برای استفاده از منوی خدمات، لطفاً ابتدا عضو کانال شوید*.\n\n🚀 {MAIN_CHANNEL_URL}\n\n🔄 *پس از عضویت، برگردید و ادامه دهید.*"
-    if user_id not in warned_users: warned_users.add(user_id)
-    
-    await send_msg(cid, message, inline_kb)
-    await send_msg(cid, "🔹 لطفاً پس از عضویت، دکمه تایید را بزنید.", kb_main(is_admin))
-    return True
+  inline_kb = {
+      "inline_keyboard": [
+          [{"text": "🚀 عضویت در کانال بروکر", "url": MAIN_CHANNEL_URL}],
+          [{"text": "✅ عضو شدم", "callback_data": "check_membership"}],
+      ]
+  }
+  message = (
+      "❌ **هنوز عضو نشدید!**\nلطفاً ابتدا عضو شوید و سپس برگردید."
+      if user_id in warned_users
+      else (
+          "🔔 *برای استفاده از منوی خدمات، لطفاً ابتدا عضو کانال"
+          f" شوید*.\n\n🚀 {MAIN_CHANNEL_URL}\n\n🔄 *پس از عضویت، برگردید و ادامه"
+          " دهید.*"
+      )
+  )
+  if user_id not in warned_users:
+    warned_users.add(user_id)
+
+  await send_msg(cid, message, inline_kb)
+  await send_msg(
+      cid, "🔹 لطفاً پس از عضویت، دکمه تایید را بزنید.", kb_main(is_admin)
+  )
+  return True
+
 
 # ۱۱. ارسال پیام خوش‌آمدگویی
 async def send_welcome_message(cid, name, user_id, is_admin, MAIN_CHANNEL_URL, kb_main):
