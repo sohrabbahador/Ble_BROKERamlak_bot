@@ -19,6 +19,15 @@ from keyboards import (
     kb_meter_3khab
 )
 
+# تعریف دستی دکمه صفحه بعد برای جلوگیری از ارور ImportError
+def kb_next():
+    return {
+        "keyboard": [
+            [{"text": "صفحه بعد ➡️"}, {"text": "بازگشت به منو اصلی"}]
+        ],
+        "resize_keyboard": True
+    }
+
 # --- متغیر سراسری برای ذخیره کاربران هشدار دیده ---
 warned_users = set()
 
@@ -151,7 +160,8 @@ def get_users_list():
 async def handle_membership_flow(cid, user_id, is_admin, cb_data, txt, MAIN_CHANNEL_URL, kb_main, is_member_func):
     global warned_users
     if is_admin or await is_member_func(user_id):
-        if user_id in warned_users: warned_users.remove(user_id)
+        if user_id in warned_users:
+            warned_users.remove(user_id)
         return False
 
     inline_kb = {
