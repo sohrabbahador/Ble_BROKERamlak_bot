@@ -167,7 +167,7 @@ def get_session(user_id):
     return db["sessions"].find_one({"user_id": user_id})
 
 
-def search_files(kind, khab, bmin, bmax, mmin, mmax, page):
+def search_files(kind, khab, bmin, bmax, mmin, mmax, page, cid=None, user_id=None):
     # شروع کوئری با نوع ملک (که اجباری است)
     query = {"kind": kind}
 
@@ -242,4 +242,3 @@ def push_history(user_id, step_name):
         {"$push": {"history": {"$each": [step_name], "$slice": -10}}},
         upsert=True
     )
-    
