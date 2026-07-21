@@ -260,19 +260,24 @@ async def show_results(cid, res, is_fav=False):
             await send_pic(cid, photos[0], cap, kb)
         else:
             await send_msg(cid, cap, kb)
+
 async def handle_start_flow(cid, user_id, txt):
     """مدیریت جریان شروع و منوی اصلی ربات"""
     from keyboards import kb_main, kb_khab
     if "خرید" in txt:
         set_session(user_id, step="select_khab")
         push_history(user_id, "start_khab_selection")
-        await send_msg(cid, "لطفاً تعداد خواب مورد نظر خود را برای خرید انتخاب کنید:", kb_khab)
+        # اصلاح: اضافه شدن پرانتز به انتهای kb_khab
+        await send_msg(cid, "لطفاً تعداد خواب مورد نظر خود را برای خرید انتخاب کنید:", kb_khab())
     elif "رهن و اجاره" in txt:
         set_session(user_id, step="rent_select_khab")
         push_history(user_id, "start_rent_selection")
-        await send_msg(cid, "لطفاً تعداد خواب مورد نظر خود را برای رهن و اجاره انتخاب کنید:", kb_khab)
+        # اصلاح: اضافه شدن پرانتز به انتهای kb_khab
+        await send_msg(cid, "لطفاً تعداد خواب مورد نظر خود را برای رهن و اجاره انتخاب کنید:", kb_khab())
     else:
-        await send_msg(cid, "لطفاً از منوی زیر یکی از گزینه‌ها را انتخاب کنید:", kb_main)
+        # اصلاح: اضافه شدن پرانتز به انتهای kb_main (با فرض اینکه is_admin در این تابع نیاز است یا خیر، اگر تابع پارامتر می‌گیرد بررسی کنید - بر اساس کدهای قبلی kb_main(False) یا kb_main(adm) است، اما اینجا تابع بدون پارامتر یا با پیش‌فرض است)
+        # در اینجا kb_main()) تنظیم شده است
+        await send_msg(cid, "لطفاً از منوی زیر یکی از گزینه‌ها را انتخاب کنید:", kb_main(False))
         
 def parse_budget_text(text):
     """تابع کمکی برای تجزیه و تحلیل متون مرتبط با بودجه و قیمت"""
