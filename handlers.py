@@ -2,6 +2,12 @@
 import httpx
 from config import ADMIN_ID, MAIN_CHANNEL_URL, TOKEN, db
 from core import (
+    get_session, 
+    register_user, 
+    save_file, 
+    send_msg
+)
+from archive import (
     add_to_favorites,
     get_bot_stats,
     get_users_list,
@@ -11,11 +17,7 @@ from core import (
     remove_from_favorites,
     send_welcome_message,
     show_favorites,
-    show_support,
-    get_session,
-    register_user,
-    save_file,
-    send_msg
+    show_support
 )
 from keyboards import kb_main
 from property import handle_user_actions
