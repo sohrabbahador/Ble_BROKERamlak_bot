@@ -1,10 +1,10 @@
 # rent_property.py
-from .utils import set_session, push_history, send_msg
-from .keyboards import (
+from utils import set_session, push_history, send_msg
+from keyboards import (
     kb_khab_selection,  # فرض می‌کنم کیبورد انتخاب خواب مشترک است
 )
-from .database import search_files  # توابع دیتابیس را ایمپورت کن
-from .results import show_results  # تابع نمایش نتایج را ایمپورت کن
+from database import search_files  # توابع دیتابیس را ایمپورت کن
+from results import show_results  # تابع نمایش نتایج را ایمپورت کن
 
 
 async def handle_rent_flow(cid, user_id, s, txt):
