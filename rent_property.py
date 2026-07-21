@@ -8,23 +8,24 @@ from keyboards import (
 
 # تابع مدیریت کامل جریان رهن و اجاره - کاملاً مجزا از خرید
 async def handle_rent_flow(cid, user_id, s, txt):
-    "" ""
+    """مدیریت جریان رهن و اجاره با پیش‌گیری از تداخل با خرید"""
+
+    # ثبت وضعیت کاربر در سشن برای جلوگیری از تداخل با مسیر خرید در main.py
+    set_session(user_id, flow="rent")
 
     # ۱. بررسی درخواست بازگشت به منوی اصلی
     if txt == "🏠 منوی اصلی":
-        # پاک کردن سشن مربوط به خواب برای شروع مجدد در آینده
-        set_session(user_id, khab=None)
+        # پاک کردن سشن مربوط به خواب و وضعیت جریان برای شروع مجدد
+        set_session(user_id, khab=None, flow=None)
         await send_msg(
             cid,
             "به منوی اصلی بازگشتید. چه کمکی از دست من برمی‌آید؟",
-            # در اینجا باید kb_main() فراخوانی شود، اما چون در core یا elsewhere هندل می‌شود،
-            # فقط پیام می‌فرستیم یا اگر تابع kb_main در دسترس است اینجا قرار می‌دهیم.
+            # اگر kb_main در دسترس است اینجا اضافه شود
         )
         return
 
     # ۲. بررسی دکمه مشاهده همه فایل‌ها (بدون نیاز به انتخاب خواب)
     if "مشاهده" in txt and "فایل‌ها" in txt:
-        # ارسال None برای خواب، بودجه و متراژ تا همه نتایج رهن و اجاره نمایش داده شود
         res = await search_files(
             cid,
             user_id,
@@ -34,7 +35,15 @@ async def handle_rent_flow(cid, user_id, s, txt):
             None,  # بدون محدودیت متراژ
             s.get("page", 1),
         )
-        await show_results(cid, res, False)
+
+        if not res:
+            await send_msg(
+                cid,
+                "❌ در حال حاضر هیچ ملکی در بخش رهن و اجاره یافت نشد.",
+                kb_khab_selection(),
+            )
+        else:
+            await show_results(cid, res, False)
         return
 
     # ۳. بررسی انتخاب تعداد خواب توسط کاربر
@@ -56,7 +65,15 @@ async def handle_rent_flow(cid, user_id, s, txt):
             s.get("page", 1),
         )
 
-        await show_results(cid, res, False)
+        if not res:
+            # حل مشکل: اگر فایلی نبود، به جای نمایش مسیر خرید، این پیام نمایش داده شود
+            await send_msg(
+                cid,
+                f"❌ متأسفانه ملکی با مشخصات «{clean_khab}» در بخش رهن و اجاره یافت نشد.",
+                kb_khab_selection(),
+            )
+        else:
+            await show_results(cid, res, False)
         return
 
     # ۴. مدیریت سایر پیام‌ها یا ورودی‌های نامعتبر
