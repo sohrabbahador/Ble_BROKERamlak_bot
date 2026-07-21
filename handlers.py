@@ -147,7 +147,7 @@ async def process_bale_webhook(d: dict):
                 await send_msg(cid, f"✅ پیام به {sc} کاربر ارسال شد.")
             return
 
-     if "🔙 مرحله قبل" in txt:
+        if "🔙 مرحله قبل" in txt:
             await handle_back_step(cid, uid, adm)
         elif "علاقه‌مندی‌ها" in txt:
             await show_favorites(cid, uid, adm)
@@ -163,7 +163,6 @@ async def process_bale_webhook(d: dict):
                 await handle_start_flow(cid, uid, txt)
         else:
             await handle_user_actions(cid, uid, txt, s, adm)
-
 
     except Exception as e:
         print(f"Error in process_bale_webhook: {e}")
