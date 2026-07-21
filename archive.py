@@ -159,5 +159,8 @@ async def remove_from_favorites(cid, user_id, prop_id):
     await send_msg(cid, "⚠️ بخش علاقه‌مندی‌ها در حال به‌روزرسانی است و به‌زودی در دسترس قرار می‌گیرد.")
 
 # ۱۳. تابع جستجوی فایل‌ها
-async def search_files(update, context):
-    pass
+async def search_files(
+    cid, user_id, kind, khab, b_min, b_max, page=1
+):
+  pass
+    
