@@ -39,7 +39,7 @@ async def handle_rent_flow(cid, user_id, s, txt):
             await send_msg(
                 cid,
                 "لطفاً ابتدا تعداد خواب مورد نظر خود را انتخاب کنید:",
-                kb_khab_selection,
+                kb_khab_selection(),
             )
             return
 
