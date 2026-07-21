@@ -274,3 +274,16 @@ async def handle_start_flow(cid, user_id, txt):
     else:
         await send_msg(cid, "لطفاً از منوی زیر یکی از گزینه‌ها را انتخاب کنید:", kb_main)
         
+def parse_budget_text(text):
+    """تابع کمکی برای تجزیه و تحلیل متون مرتبط با بودجه و قیمت"""
+    text_en = fa_to_en(text)
+    billions = 0
+    millions = 0
+    b_match = re.search(r"(\d+)\s*(?:میلیارد|میلیاردی)", text_en)
+    m_match = re.search(r"(\d+)\s*(?:میلیون|میلیونی)", text_en)
+    if b_match:
+        billions = int(b_match.group(1)) * 10**9
+    if m_match:
+        millions = int(m_match.group(1)) * 10**6
+    total = billions + millions
+    return total if total > 0 else None
