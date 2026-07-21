@@ -1,29 +1,38 @@
 # keyboards.py
+# وارد کردن تنظیمات و متغیرهای سراسری مورد نیاز از فایل config
 from config import MAIN_CHANNEL_URL
 
+
+# تابع ساخت کیبورد اصلی ربات، با قابلیت تغییر دکمه‌ها بر اساس ادمین بودن کاربر
 def kb_main(is_admin=False):
     kb = [
-    [{"text": "🏠 خرید"}, {"text": "🔑 رهن و اجاره"}],
-    [{"text": "🔍 جستجوی سریع"}, {"text": "⭐ علاقه‌مندی‌ها"}],
-    [{"text": "🔔 تنظیم گوش‌به‌زنگ"}, {"text": "📞 پشتیبانی"}]
+        [{"text": "🏠 خرید"}, {"text": "🔑 رهن و اجاره"}],
+        [{"text": "🔍 جستجوی سریع"}, {"text": "⭐ علاقه‌مندی‌ها"}],
+        [{"text": "🔔 تنظیم گوش‌به‌زنگ"}, {"text": "📞 پشتیبانی"}],
     ]
-    
+
+    # اضافه کردن گزینه‌های مدیریتی به کیبورد در صورت ادمین بودن کاربر
     if is_admin:
         kb.append([{"text": "📊 آمار ربات"}, {"text": "👥 لیست کاربران"}])
         kb.append([{"text": "📢 ارسال پیام همگانی"}, {"text": "بازگشت به منو اصلی"}])
+
     return {"keyboard": kb, "resize_keyboard": True}
 
+
+# تابع ساخت کیبورد انتخاب تعداد خواب برای ملک
 def kb_khab():
     return {
         "keyboard": [
             [{"text": "۱ خواب"}, {"text": "۲ خواب"}],
             [{"text": "۳ خواب"}, {"text": "۴ خواب و بیشتر"}],
-            [{"text": "🔙 مرحله قبل"}, {"text": "بازگشت به منو اصلی"}]
+            [{"text": "📋 مشاهده همه فایل‌ها"}],  # دکمه جدید برای دیدن کل فایل‌ها
+            [{"text": "🏠 منوی اصلی"}],  # هماهنگ با استایل منوی اصلی
         ],
-        "resize_keyboard": True
+        "resize_keyboard": True,
     }
 
 
+# تابع ساخت کیبورد انتخاب بودجه برای واحدهای ۲ خوابه
 def kb_budget_2khab():
     return {
         "keyboard": [
@@ -32,12 +41,13 @@ def kb_budget_2khab():
             [{"text": "۳۵ الی ۴۰ میلیارد"}, {"text": "۴۰ الی ۵۰ میلیارد"}],
             [{"text": "۵۰ الی ۶۰ میلیارد"}, {"text": "۶۰ میلیارد به بالا"}],
             [{"text": "📋 مشاهده همه فایل‌ها"}],
-            [{"text": "🔙 مرحله قبل"}, {"text": "بازگشت به منو اصلی"}]
+            [{"text": "🔙 مرحله قبل"}, {"text": "🏠 منوی اصلی"}],
         ],
-        "resize_keyboard": True
+        "resize_keyboard": True,
     }
 
 
+# تابع ساخت کیبورد انتخاب بودجه برای واحدهای ۳ خوابه
 def kb_budget_3khab():
     return {
         "keyboard": [
@@ -45,45 +55,48 @@ def kb_budget_3khab():
             [{"text": "۳۵ الی ۴۰ میلیارد"}, {"text": "۴۰ الی ۵۰ میلیارد"}],
             [{"text": "۵۰ الی ۶۰ میلیارد"}, {"text": "۶۰ میلیارد به بالا"}],
             [{"text": "📋 مشاهده همه فایل‌ها"}],
-            [{"text": "🔙 مرحله قبل"}, {"text": "بازگشت به منو اصلی"}]
+            [{"text": "🔙 مرحله قبل"}, {"text": "🏠 منوی اصلی"}],
         ],
-        "resize_keyboard": True
+        "resize_keyboard": True,
     }
 
 
+# تابع ساخت کیبورد انتخاب متراژ برای واحدهای ۲ خوابه
 def kb_meter_2khab():
     return {
         "keyboard": [
             [{"text": "زیر ۸۰ متر"}, {"text": "۸۰ الی ۱۰۰ متر"}],
             [{"text": "۱۰۰ الی ۱۲۰ متر"}, {"text": "۱۲۰ متر به بالا"}],
-            [{"text": "🔙 مرحله قبل"}, {"text": "بازگشت به منو اصلی"}]
+            [{"text": "🔙 مرحله قبل"}, {"text": "🏠 منوی اصلی"}],
         ],
-        "resize_keyboard": True
+        "resize_keyboard": True,
     }
 
 
+# تابع ساخت کیبورد انتخاب متراژ برای واحدهای ۳ خوابه
 def kb_meter_3khab():
     return {
         "keyboard": [
             [{"text": "۱۰۰ الی ۱۲۵ متر"}, {"text": "۱۲۵ الی ۱۵۰ متر"}],
             [{"text": "۱۵۰ الی ۱۷۰ متر"}, {"text": "۱۷۰ متر به بالا"}],
-            [{"text": "🔙 مرحله قبل"}, {"text": "بازگشت به منو اصلی"}]
+            [{"text": "🔙 مرحله قبل"}, {"text": "🏠 منوی اصلی"}],
         ],
-        "resize_keyboard": True
+        "resize_keyboard": True,
     }
 
+
+# تابع ساخت کیبورد شیشه‌ای (Inline) مربوط به عملیات روی هر فایل یا ملک
 def inline_action(fid):
     share_url = f"https://ble.ir/share/url?url=https://t.me/BrokerBot?start=file_{fid}"
     return {
         "inline_keyboard": [
             [
                 {"text": "🚀 خرید و فروش", "url": "https://ble.ir/broker_amlak"},
-                {"text": "🚀 رهن و اجاره", "url": "https://ble.ir/BROKER_amlak2"}
+                {"text": "🚀 رهن و اجاره", "url": "https://ble.ir/BROKER_amlak2"},
             ],
             [
-                {"text": "⭐ افزودن به علاقه‌مندی", "callback_data": f"fav:{fid}"}, 
-                {"text": "🔗 اشتراک‌گذاری", "url": share_url}
-            ]
+                {"text": "⭐ افزودن به علاقه‌مندی", "callback_data": f"fav:{fid}"},
+                {"text": "🔗 اشتراک‌گذاری", "url": share_url},
+            ],
         ]
     }
-
