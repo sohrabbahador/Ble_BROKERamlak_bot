@@ -6,7 +6,7 @@ from archive import (add_to_favorites, get_bot_stats, get_users_list, handle_bac
                      send_welcome_message, show_favorites, show_results, show_support)
 from config import ADMIN_ID, MAIN_CHANNEL_URL, TOKEN, db
 from core import get_session, register_user, save_file, send_msg, send_pic, set_session
-from keyboards import inline_action, kb_custom_budget, kb_khab, kb_main, kb_meter, kb_next
+from keyboards import kb_main 
 from property import handle_user_actions
 
 # --- بررسی عضویت کاربر در کانال ---
@@ -80,9 +80,11 @@ async def process_bale_webhook(data: dict):
             if is_admin:
                 if "📊 آمار ربات" in txt:
                     await send_msg(cid, await get_bot_stats())
+                    return
                 elif "👥 لیست کاربران" in txt:
                     await send_msg(cid, get_users_list())
-                elif "📢 ارسال پیام همگانی" in txt:
+                    return
+                elif "📢 ارسال همگانی" in txt:
                     db["admin_state"].update_one({"_id": cid}, {"$set": {"waiting_broadcast": True}}, upsert=True)
                     await send_msg(cid, "✍️ متن پیام را بفرستید:")
                     return
@@ -100,30 +102,24 @@ async def process_bale_webhook(data: dict):
                         db["admin_state"].update_one({"_id": cid}, {"$set": {"waiting_broadcast": False}}, upsert=True)
                         await send_msg(cid, f"✅ پیام به {success} کاربر ارسال شد.")
                     return
-            
+
             # --- پردازش دستورات عمومی و منوی کاربری ---
             if "🔙 مرحله قبل" in txt:
                 await handle_back_step(cid, user_id, is_admin)
+                return
             elif "علاقه‌مندی‌ها" in txt:
                 await show_favorites(cid, user_id, send_msg, is_admin)
+                return
             elif "پشتیبانی" in txt:
                 await show_support(cid, send_msg)
-            elif "جستجوی سریع" in txt:
-                await send_msg(cid, "نام محله یا ویژگی را بفرستید:")
+                return
             elif "گوش‌به‌زنگ" in txt:
                 await register_alert(cid, user_id, s)
-            elif any(kw in txt for kw in ["خرید", "فروش", ...]):
-                await handle_user_actions(cid, user_id, txt, s, is_admin, set_session, push_history, handle_start_flow, parse_budget_text, kb_budget_2khab, kb_budget_3khab, kb_meter_2khab, kb_meter_3khab, kb_khab, show_results, kb_main, send_msg)
+                return
 
-            
-            # --- جستجوی فایل‌ها در دیتابیس ---
-            else:
-                from property import ADMIN_STATES
-                if ADMIN_STATES.get(user_id) in ["waiting_min_budget_flow", "waiting_max_budget_flow"]:
-                    await handle_user_actions(cid, user_id, txt, s, is_admin, set_session, push_history, handle_start_flow, parse_budget_text, kb_custom_budget, kb_meter, kb_khab, show_results, kb_main, send_msg)
-                else:
-                    res = list(db["files"].find({"text": {"$regex": txt, "$options": "i"}}).limit(5))
-                    await show_results(cid, res, is_admin)
+            # --- مدیریت عملیات املاک و جستجوی فایل‌ها ---
+            # تمام منطق (شامل خرید، فروش، متراژ، بودجه و جستجوی سریع) را به property سپردیم
+            await handle_user_actions(cid, user_id, txt, s, is_admin)
 
     except Exception as e:
-        print(f"Error: {e}")
+        print(f"Error in process_bale_webhook: {e}")
