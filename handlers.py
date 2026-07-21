@@ -15,7 +15,7 @@ from config import ADMIN_ID, MAIN_CHANNEL_URL, TOKEN, db
 from core import get_session, register_user, save_file, send_msg
 from keyboards import kb_main
 from property import handle_user_actions
-from .rent_property import handle_rent_flow
+from rent_property import handle_rent_flow
 
 
 async def is_member(user_id):
@@ -60,13 +60,11 @@ async def process_bale_webhook(d: dict):
             return
         uid, adm = cid, cid == ADMIN_ID
 
-        # 1. مدیریت پیام‌های کانال و ذخیره فایل
         if ct == "channel":
             if msg and "photo" in msg and "موجود" in txt:
                 await save_file(txt, [msg["photo"][-1]["file_id"]])
             return
 
-        # 2. مدیریت چت‌های شخصی و دستورات اولیه
         if ct == "private":
             if txt == "/start":
                 name = (
@@ -79,38 +77,29 @@ async def process_bale_webhook(d: dict):
                 )
                 return
 
-            if cb and txt == "check_membership":
-                ok = await is_member(uid)
-                await send_msg(
-                    cid,
-                    (
-                        "✅ عضویت شما تایید شد. اکنون می‌توانید از تمامی"
-                        " خدمات استفاده کنید."
-                        if ok
-                        else (
-                            "❌ شما هنوز عضو نشده‌اید! لطفاً ابتدا عضو شوید و"
-                            " سپس دکمه تایید را بزنید."
-                        )
-                    ),
-                    kb_main(adm) if ok else None,
-                )
-                return
+        if cb and txt == "check_membership":
+            ok = await is_member(uid)
+            await send_msg(
+                cid,
+                "✅ عضویت شما تایید شد. اکنون می‌توانید از تمامی خدمات استفاده کنید." if ok else "❌ شما هنوز عضو نشده‌اید! لطفاً ابتدا عضو شوید و سپس دکمه تایید را بزنید.",
+                kb_main(adm) if ok else None,
+            )
+            return
 
-            if await handle_membership_flow(
-                cid, uid, adm, cb, txt, MAIN_CHANNEL_URL, kb_main, is_member
-            ):
-                return
+        if await handle_membership_flow(
+            cid, uid, adm, cb, txt, MAIN_CHANNEL_URL, kb_main, is_member
+        ):
+            return
 
-            if cb and txt.startswith("fav:"):
-                await add_to_favorites(cid, uid, int(txt.split(":")[1]))
-                return
-            if cb and txt.startswith("del_fav:"):
-                await remove_from_favorites(cid, uid, int(txt.split(":")[1]))
-                return
+        if cb and txt.startswith("fav:"):
+            await add_to_favorites(cid, uid, int(txt.split(":")[1]))
+            return
+        if cb and txt.startswith("del_fav:"):
+            await remove_from_favorites(cid, uid, int(txt.split(":")[1]))
+            return
 
         s = get_session(uid) or {}
 
-        # 3. مدیریت امکانات ویژه ادمین
         if adm:
             if "📊 آمار ربات" in txt:
                 await send_msg(cid, await get_bot_stats())
@@ -152,7 +141,6 @@ async def process_bale_webhook(d: dict):
                 await send_msg(cid, f"✅ پیام به {sc} کاربر ارسال شد.")
             return
 
-        # 4. مدیریت منوها و تفکیک مسیر رهن و خرید (بخش اصلاح شده توسط خودت)
         if "🔙 مرحله قبل" in txt:
             await handle_back_step(cid, uid, adm)
         elif "علاقه‌مندی‌ها" in txt:
