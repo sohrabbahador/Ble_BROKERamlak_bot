@@ -159,5 +159,16 @@ async def remove_from_favorites(cid, user_id, prop_id):
     await send_msg(cid, "⚠️ بخش علاقه‌مندی‌ها در حال به‌روزرسانی است و به‌زودی در دسترس قرار می‌گیرد.")
 
 # ۱۳. تابع جستجوی فایل‌ها
-async def search_files(update, context):
-    pass
+async def search_files(cid, user_id, kind, khab, b_min, b_max, page=1):
+    try:
+        query, bf = {}, {}
+        if kind: query["kind"] = kind
+        if khab: query["khab"] = khab
+        if b_min is not None: bf["$gte"] = b_min
+        if b_max is not None: bf["$lte"] = b_max
+        if bf: query["price"] = bf
+        return list(db["files"].find(query).sort("created_at", -1).skip((page - 1) * 10).limit(10))
+    except Exception as e:
+        print(f"Error in search_files: {e}")
+        return []
+        
