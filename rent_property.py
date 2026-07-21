@@ -1,8 +1,9 @@
 # rent_property.py
 from core import set_session, push_history, send_msg
 from keyboards import (
-    kb_khab_selection,  # فرض می‌کنم کیبورد انتخاب خواب مشترک است
+    kb_khab as kb_khab_selection,  # سازگاری نام کیبورد
 )
+
 from database import search_files  # توابع دیتابیس را ایمپورت کن
 from results import show_results  # تابع نمایش نتایج را ایمپورت کن
 
