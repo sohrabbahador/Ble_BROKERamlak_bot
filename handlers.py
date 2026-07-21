@@ -79,7 +79,7 @@ async def process_bale_webhook(d: dict):
                 )
                 register_user(cid, name)
                 await send_welcome_message(
-                    cid, name, uid, adm, MAIN_CHANNEL_URL, kb_main(adm)
+                    cid, name, uid, adm, MAIN_CHANNEL_URL, kb_main
                 )
                 return
 
