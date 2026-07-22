@@ -14,17 +14,17 @@ async def handle_rent_flow(cid, user_id, s, txt):
     set_session(user_id, flow="rent")
 
     # ۱. بررسی درخواست بازگشت به منوی اصلی
-    if txt == "🏠 منوی اصلی":
+    if txt == "🏠 منوی اصلی" or txt == "بازگشت به منو اصلی":
         # پاک کردن سشن مربوط به خواب و وضعیت جریان برای شروع مجدد
         set_session(user_id, khab=None, flow=None)
         await send_msg(
             cid,
-            "به منوی اصلی بازگشتید. چه کمکی از دست من برمی‌آید؟",
+            "به منوی اصلی بازگشتید.",
         )
         return
 
     # ۲. بررسی دکمه مشاهده همه فایل‌ها (بدون نیاز به انتخاب خواب)
-    if "مشاهده" in txt and "فایل‌ها" in txt:
+    elif "مشاهده همه" in txt or "مشاهده" in txt and "فایل" in txt:
         res = search_files(
             kind="رهن_اجاره",
             khab=None,
@@ -48,7 +48,7 @@ async def handle_rent_flow(cid, user_id, s, txt):
         return
 
     # ۳. بررسی انتخاب تعداد خواب توسط کاربر
-    if "خواب" in txt:
+    elif "خواب" in txt:
         clean_khab = txt.strip()
 
         # ذخیره تعداد خواب در سشن کاربر، تثبیت فلو روی رهن و ثبت تاریخچه
