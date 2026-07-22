@@ -20,20 +20,21 @@ async def handle_rent_flow(cid, user_id, s, txt):
         await send_msg(
             cid,
             "به منوی اصلی بازگشتید. چه کمکی از دست من برمی‌آید؟",
-            # اگر kb_main در دسترس است اینجا اضافه شود
         )
         return
 
     # ۲. بررسی دکمه مشاهده همه فایل‌ها (بدون نیاز به انتخاب خواب)
     if "مشاهده" in txt and "فایل‌ها" in txt:
-        res = await search_files(
-            cid,
-            user_id,
-            "رهن_اجاره",
-            None,  # بدون محدودیت خواب
-            None,  # بدون محدودیت بودجه
-            None,  # بدون محدودیت متراژ
-            s.get("page", 1),
+        res = search_files(
+            kind="رهن_اجاره",
+            khab=None,
+            bmin=None,
+            bmax=None,
+            mmin=None,
+            mmax=None,
+            page=s.get("page", 1),
+            cid=cid,
+            user_id=user_id
         )
 
         if not res:
@@ -43,7 +44,7 @@ async def handle_rent_flow(cid, user_id, s, txt):
                 kb_khab_selection(),
             )
         else:
-            await show_results(cid, res, False)
+            show_results(cid, res, False)
         return
 
     # ۳. بررسی انتخاب تعداد خواب توسط کاربر
@@ -55,14 +56,16 @@ async def handle_rent_flow(cid, user_id, s, txt):
         push_history(user_id, "select_khab")
 
         # جستجو بر اساس تعداد خواب انتخاب شده
-        res = await search_files(
-            cid,
-            user_id,
-            "رهن_اجاره",
-            clean_khab,
-            None,  # بودجه (غیرفعال)
-            None,  # متراژ (غیرفعال)
-            s.get("page", 1),
+        res = search_files(
+            kind="رهن_اجاره",
+            khab=clean_khab,
+            bmin=None,
+            bmax=None,
+            mmin=None,
+            mmax=None,
+            page=s.get("page", 1),
+            cid=cid,
+            user_id=user_id
         )
 
         if not res:
@@ -73,7 +76,7 @@ async def handle_rent_flow(cid, user_id, s, txt):
                 kb_khab_selection(),
             )
         else:
-            await show_results(cid, res, False)
+            show_results(cid, res, False)
         return
 
     # ۴. مدیریت سایر پیام‌ها یا ورودی‌های نامعتبر
