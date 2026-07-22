@@ -24,7 +24,7 @@ async def handle_rent_flow(cid, user_id, s, txt):
         return
 
     # ۲. بررسی دکمه مشاهده همه فایل‌ها (بدون نیاز به انتخاب خواب)
-    elif "مشاهده همه" in txt or "مشاهده" in txt and "فایل" in txt:
+    elif "مشاهده همه" in txt or ("مشاهده" in txt and "فایل" in txt):
         res = search_files(
             kind="رهن_اجاره",
             khab=None,
@@ -44,7 +44,7 @@ async def handle_rent_flow(cid, user_id, s, txt):
                 kb_khab_selection(),
             )
         else:
-            show_results(cid, res, False)
+            await show_results(cid, res, False)
         return
 
     # ۳. بررسی انتخاب تعداد خواب توسط کاربر
@@ -76,7 +76,7 @@ async def handle_rent_flow(cid, user_id, s, txt):
                 kb_khab_selection(),
             )
         else:
-            show_results(cid, res, False)
+            await show_results(cid, res, False)
         return
 
     # ۴. مدیریت سایر پیام‌ها یا ورودی‌های نامعتبر
