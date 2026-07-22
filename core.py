@@ -120,6 +120,7 @@ def get_session(user_id):
     return db["sessions"].find_one({"user_id": user_id})
 
 def search_files(kind, khab, bmin, bmax, mmin, mmax, page, cid=None, user_id=None):
+    # ۱. تلاش اول: جستجوی کاملاً دقیق با تمام فیلترها
     query = {"kind": kind}
     if khab: query["khab"] = khab
     
@@ -135,7 +136,19 @@ def search_files(kind, khab, bmin, bmax, mmin, mmax, page, cid=None, user_id=Non
 
     limit = 5
     skip = (page - 1) * limit
-    return list(db["files"].find(query).skip(skip).limit(limit))
+    results = list(db["files"].find(query).skip(skip).limit(limit))
+    if results:
+        return results
+
+    # ۲. تلاش دوم: اگر با قیمت یا متراژ دقیق نتیجه‌ای پیدا نشد، فیلتر قیمت و متراژ را بردار و فقط روی نوع معامله و تعداد خواب تمرکز کن
+    fallback_query = {"kind": kind}
+    if khab: fallback_query["khab"] = khab
+    results = list(db["files"].find(fallback_query).skip(skip).limit(limit))
+    if results:
+        return results
+
+    # ۳. تلاش سوم: اگر باز هم نتیجه‌ای نبود، فقط بر اساس نوع معامله جستجو کن تا کاربر دست خالی نماند
+    return list(db["files"].find({"kind": kind}).skip(skip).limit(limit))
 
 async def send_msg(cid, text, kb=None):
     payload = {"chat_id": cid, "text": f"{text}", "parse_mode": "Markdown"}
