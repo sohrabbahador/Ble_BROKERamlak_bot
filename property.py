@@ -125,11 +125,18 @@ async def handle_user_actions(cid, user_id, txt, s, is_admin, *args, **kwargs):
         current_kind = s.get("kind") or "فروش"
         res = search_files(
             kind=current_kind,
-            query=txt.strip(),
+            khab=s.get("khab"),
+            bmin=s.get("budje_min"),
+            bmax=s.get("budje_max"),
+            mmin=s.get("meter_min"),
+            mmax=s.get("meter_max"),
             page=1,
             cid=cid,
             user_id=user_id
         )
+        if not res:
+            res = search_files(kind=current_kind, page=1, cid=cid, user_id=user_id)
+            
         if not res:
             await send_msg(cid, "❌ در حال حاضر هیچ ملکی با این مشخصات یافت نشد.")
         else:
