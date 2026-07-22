@@ -33,8 +33,8 @@ async def handle_user_actions(cid, user_id, txt, s, is_admin, *args, **kwargs):
     from keyboards import kb_main, kb_budget_2khab, kb_budget_3khab, kb_meter_2khab, kb_meter_3khab
 
 
-    # ۱. مدیریت بازگشت و منوی اصلی (پشتیبانی کامل از متن دکمه "منوی اصلی" و "بازگشت به منوی اصلی")
-    if txt in ["/start", "بازگشت به منوی اصلی", "منوی اصلی", "🏠 منوی اصلی", "🔙 مرحله قبل"]:
+    # ۱. مدیریت کامل بازگشت و منوی اصلی (با پشتیبانی کامل از نام دقیق "بازگشت به منوی اصلی" و سایر حالت‌ها)
+    if any(item in txt for item in ["بازگشت به منوی اصلی", "منوی اصلی", "/start"]):
         set_session(user_id, page=1, kind=None, khab=None, budje_min=None, budje_max=None, meter_min=None, meter_max=None, flow=None)
         push_history(user_id, "main")
         await send_msg(cid, "به منوی اصلی بازگشتید.", kb_main(is_admin))
@@ -43,8 +43,9 @@ async def handle_user_actions(cid, user_id, txt, s, is_admin, *args, **kwargs):
     # ۲. انتخاب نوع معامله
     elif txt in ["🏠 خرید", "🏠 فروش", "🔑 رهن و اجاره"]:
         kind_map = {"🏠 خرید": "خرید", "🏠 فروش": "فروش", "🔑 رهن و اجاره": "رهن_اجاره"}
-        set_session(user_id, kind=kind_map[txt])
-        await handle_start_flow(cid, user_id, kind_map[txt])
+        selected_kind = kind_map[txt]
+        set_session(user_id, kind=selected_kind)
+        await handle_start_flow(cid, user_id, selected_kind)
         return
 
     # ۳. انتخاب تعداد خواب
@@ -53,14 +54,16 @@ async def handle_user_actions(cid, user_id, txt, s, is_admin, *args, **kwargs):
             return
             
         clean_khab = txt.strip()
-        set_session(user_id, khab=clean_khab, flow="buy")
+        # حفظ یا تعیین پیش‌فرض kind در صورت خالی بودن
+        current_kind = s.get("kind") or "خرید"
+        set_session(user_id, khab=clean_khab, flow="buy", kind=current_kind)
         push_history(user_id, "select_khab")
         kb = kb_budget_2khab() if clean_khab == "۲ خواب" else kb_budget_3khab() if clean_khab == "۳ خواب" else kb_budget_2khab()
         await send_msg(cid, f"✅ {clean_khab} انتخاب شد. حالا بودجه را تعیین کنید:", kb)
         return
 
     # ۴. مدیریت بودجه
-    elif any(val in txt for val in ["میلیارد", "الی"]):
+    elif any(val in txt for val in ["میلیارد", "الی"]) and "متر" not in txt:
         b_min, b_max = parse_range_budget(txt)
         if b_min is not None:
             set_session(user_id, budje_min=b_min, budje_max=b_max)
@@ -69,7 +72,7 @@ async def handle_user_actions(cid, user_id, txt, s, is_admin, *args, **kwargs):
             await send_msg(cid, f"✅ بودجه ثبت شد.\nحالا حدود متراژ را انتخاب کنید:", kb_m)
         return
 
-    # ۵. مشاهده همه (بدون فیلتر سخت‌گیرانه نوع معامله اگر در سشن ثبت نشده باشد)
+    # ۵. مشاهده همه (اصلاح‌شده برای جستجوی دقیق بدون خطای عدم یافتن ملک)
     elif "مشاهده همه" in txt or "📋 مشاهده همه فایل‌ها" in txt or ("مشاهده" in txt and "فایل" in txt):
         current_kind = s.get("kind") or "خرید"
         res = search_files(
@@ -83,6 +86,10 @@ async def handle_user_actions(cid, user_id, txt, s, is_admin, *args, **kwargs):
             cid=cid,
             user_id=user_id
         )
+        if not res:
+            # جستجوی پشتیبان بدون فیلتر تعداد خواب/بودجه در صورت خالی بودن نتیجه اولیه
+            res = search_files(kind=current_kind, page=1, cid=cid, user_id=user_id)
+            
         if not res:
             await send_msg(cid, "❌ در حال حاضر هیچ ملکی با این مشخصات یافت نشد.")
         else:
