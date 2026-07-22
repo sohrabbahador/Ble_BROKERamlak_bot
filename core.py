@@ -127,7 +127,7 @@ def set_session(user_id, **kwargs):
 def get_session(user_id):
     return db["sessions"].find_one({"user_id": user_id})
 
-def search_files(kind, khab, bmin, bmax, mmin, mmax, page, cid=None, user_id=None):
+def search_files(kind, khab=None, bmin=None, bmax=None, mmin=None, mmax=None, page=1, cid=None, user_id=None):
     query = {"kind": kind}
     if khab: query["khab"] = khab
     
