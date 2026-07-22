@@ -109,12 +109,11 @@ async def process_bale_webhook(d: dict):
 
         if adm:
             if "📊 آمار ربات" in txt:
-            await send_msg(cid, get_bot_stats())
+                await send_msg(cid, get_bot_stats())
                 return
             elif "👥 لیست کاربران" in txt:
                 await send_msg(cid, get_users_list())
                 return
-                
             elif "📢 ارسال همگانی" in txt:
                 db["admin_state"].update_one(
                     {"_id": cid},
@@ -173,7 +172,6 @@ async def process_bale_webhook(d: dict):
                 await handle_rent_flow(cid, uid, s, txt)
             else:
                 await handle_user_actions(cid, uid, txt, s, adm)
-                    
 
     except Exception as e:
         print(f"Error in process_bale_webhook: {e}")
