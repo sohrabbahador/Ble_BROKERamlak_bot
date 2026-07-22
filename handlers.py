@@ -5,7 +5,8 @@ from core import (
     get_session, 
     register_user, 
     save_file, 
-    send_msg
+    send_msg,
+    set_session
 )
 from archive import (
     add_to_favorites,
@@ -155,14 +156,20 @@ async def process_bale_webhook(d: dict):
             await show_support(cid)
         elif "گوش‌به‌زنگ" in txt:
             await register_alert(cid, uid, s)
-        elif "خرید" in txt or "رهن و اجاره" in txt:
-            if "رهن و اجاره" in txt:
+        elif "خرید" in txt or "رهن و اجاره" in txt or s.get("flow") == "rent":
+            if "رهن و اجاره" in txt or s.get("flow") == "rent":
+                if "رهن و اجاره" in txt:
+                    set_session(uid, flow="rent")
                 await handle_rent_flow(cid, uid, s, txt)
             else:
+                set_session(uid, flow="buy")
                 from core import handle_start_flow
                 await handle_start_flow(cid, uid, txt)
         else:
-            await handle_user_actions(cid, uid, txt, s, adm)
+            if s.get("flow") == "rent":
+                await handle_rent_flow(cid, uid, s, txt)
+            else:
+                await handle_user_actions(cid, uid, txt, s, adm)
 
     except Exception as e:
         print(f"Error in process_bale_webhook: {e}")
