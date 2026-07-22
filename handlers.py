@@ -109,7 +109,8 @@ async def process_bale_webhook(d: dict):
 
         if adm:
             if "📊 آمار ربات" in txt:
-                await send_msg(cid, get_bot_stats())
+                stats_text = await get_bot_stats()
+                await send_msg(cid, stats_text)
                 return
             elif "👥 لیست کاربران" in txt:
                 await send_msg(cid, get_users_list())
@@ -156,6 +157,11 @@ async def process_bale_webhook(d: dict):
             await show_support(cid)
         elif "گوش‌به‌زنگ" in txt:
             await register_alert(cid, uid, s)
+        elif "جستجوی سریع" in txt:
+            set_session(uid, flow="buy", khab=None)
+            from core import handle_start_flow
+            await handle_start_flow(cid, uid, "فروش")
+            return
             
         elif txt == "🔑 رهن و اجاره":
             set_session(uid, flow="rent", khab=None)
