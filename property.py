@@ -1,7 +1,7 @@
 # property.py
 import json
 from config import db
-from core import send_msg  # <--- این خط باید اضافه شود
+from core import send_msg
 
 ADMIN_STATES = {}
 
@@ -33,8 +33,8 @@ async def handle_user_actions(cid, user_id, txt, s, is_admin, *args, **kwargs):
     from keyboards import kb_main, kb_budget_2khab, kb_budget_3khab, kb_meter_2khab, kb_meter_3khab
 
 
-    # ۱. مدیریت بازگشت و شروع (با کلید دقیق "بازگشت به منوی اصلی")
-    if txt in ["/start", "بازگشت به منوی اصلی", "بازگشت به منو اصلی", "🔙 مرحله قبل"]:
+    # ۱. مدیریت بازگشت و منوی اصلی (پشتیبانی کامل از متن دکمه "منوی اصلی" و "بازگشت به منوی اصلی")
+    if txt in ["/start", "بازگشت به منوی اصلی", "منوی اصلی", "🏠 منوی اصلی", "🔙 مرحله قبل"]:
         set_session(user_id, page=1, kind=None, khab=None, budje_min=None, budje_max=None, meter_min=None, meter_max=None, flow=None)
         push_history(user_id, "main")
         await send_msg(cid, "به منوی اصلی بازگشتید.", kb_main(is_admin))
@@ -43,12 +43,12 @@ async def handle_user_actions(cid, user_id, txt, s, is_admin, *args, **kwargs):
     # ۲. انتخاب نوع معامله
     elif txt in ["🏠 خرید", "🏠 فروش", "🔑 رهن و اجاره"]:
         kind_map = {"🏠 خرید": "خرید", "🏠 فروش": "فروش", "🔑 رهن و اجاره": "رهن_اجاره"}
+        set_session(user_id, kind=kind_map[txt])
         await handle_start_flow(cid, user_id, kind_map[txt])
         return
 
     # ۳. انتخاب تعداد خواب
     elif "خواب" in txt and "مشاهده" not in txt:
-        # محافظ دقیق برای اینکه فقط مسیر رهن متوقف شود
         if s.get("flow") == "rent":
             return
             
@@ -69,10 +69,11 @@ async def handle_user_actions(cid, user_id, txt, s, is_admin, *args, **kwargs):
             await send_msg(cid, f"✅ بودجه ثبت شد.\nحالا حدود متراژ را انتخاب کنید:", kb_m)
         return
 
-    # ۵. مشاهده همه (بدون فیلتر) - اصلاح شده با await و پشتیبانی کامل از متن دکمه
+    # ۵. مشاهده همه (بدون فیلتر سخت‌گیرانه نوع معامله اگر در سشن ثبت نشده باشد)
     elif "مشاهده همه" in txt or "📋 مشاهده همه فایل‌ها" in txt or ("مشاهده" in txt and "فایل" in txt):
+        current_kind = s.get("kind") or "خرید"
         res = search_files(
-            kind=s.get("kind"),
+            kind=current_kind,
             khab=s.get("khab"),
             bmin=s.get("budje_min"),
             bmax=s.get("budje_max"),
@@ -88,14 +89,15 @@ async def handle_user_actions(cid, user_id, txt, s, is_admin, *args, **kwargs):
             await show_results(cid, res, is_admin)
         return
 
-    # ۶. جستجوی نهایی با متراژ - اصلاح شده با await
+    # ۶. جستجوی نهایی با متراژ
     elif "متر" in txt:
         v = get_meter_range(txt)
         set_session(user_id, meter_min=v[0], meter_max=v[1])
         push_history(user_id, "select_meter")
         
+        current_kind = s.get("kind") or "خرید"
         res = search_files(
-            kind=s.get("kind"),
+            kind=current_kind,
             khab=s.get("khab"),
             bmin=s.get("budje_min"),
             bmax=s.get("budje_max"),
