@@ -64,10 +64,18 @@ def extract_info(text):
         price = int(rahn_value + converted_ejare)
     else:
         billions, millions = 0, 0
+        # بهبود الگو برای استخراج دقیق و همزمان میلیارد و میلیون با هرگونه فاصله و نگارش
         b_match = re.search(r"(\d+)\s*(?:میلیارد|میلیاردی)", text_en)
-        m_match = re.search(r"(\d+)\s*(?:میلیون|میلیونی)", text_en)
+        m_match = re.search(r"میلیارد[^\d]*(\d+)\s*(?:میلیون|میلیونی)", text_en) or re.search(r"(\d+)\s*(?:میلیون|میلیونی)", text_en)
+        
         if b_match: billions = int(b_match.group(1)) * 1000000000
-        if m_match: millions = int(m_match.group(1)) * 1000000
+        if m_match: 
+            val = int(m_match.group(1))
+            # اگر عدد میلیون به صورت مستقل آمده باشد یا بعد از میلیارد
+            if val < 1000:  # مثل 400 میلیون
+                millions = val * 1000000
+            else:
+                millions = val
         price = billions + millions
 
     meter_match = re.search(r"متراژ[:\s]*(\d+)", text_en) or re.search(r"(\d+)\s*متر", text_en)
