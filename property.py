@@ -69,26 +69,38 @@ async def handle_user_actions(cid, user_id, txt, s, is_admin, *args, **kwargs):
             await send_msg(cid, f"✅ بودجه ثبت شد.\nحالا حدود متراژ را انتخاب کنید:", kb_m)
         return
 
-    # ۵. مشاهده همه (بدون فیلتر)
+    # ۵. مشاهده همه (بدون فیلتر) - اصلاح شده بدون await
     elif "مشاهده همه" in txt or "📋 مشاهده همه فایل‌ها" in txt:
-        res = await search_files(cid, user_id, s.get("kind"), s.get("khab"), None, None, 1)
-        await show_results(cid, res, is_admin)
+        res = search_files(
+            kind=s.get("kind"),
+            khab=s.get("khab"),
+            bmin=None,
+            bmax=None,
+            mmin=None,
+            mmax=None,
+            page=1,
+            cid=cid,
+            user_id=user_id
+        )
+        show_results(cid, res, is_admin)
         return
 
-    # ۶. جستجوی نهایی با متراژ (اصلاح شده)
+    # ۶. جستجوی نهایی با متراژ (اصلاح شده بدون await)
     elif "متر" in txt:
         v = get_meter_range(txt)
         set_session(user_id, meter_min=v[0], meter_max=v[1])
         push_history(user_id, "select_meter")
         
-        res = await search_files(
-            cid, 
-            user_id, 
-            s.get("kind"), 
-            s.get("khab"), 
-            s.get("budje_min"), 
-            s.get("budje_max"), 
-            s.get("page", 1)
+        res = search_files(
+            kind=s.get("kind"),
+            khab=s.get("khab"),
+            bmin=s.get("budje_min"),
+            bmax=s.get("budje_max"),
+            mmin=v[0],
+            mmax=v[1],
+            page=s.get("page", 1),
+            cid=cid,
+            user_id=user_id
         )
-        await show_results(cid, res, is_admin)
+        show_results(cid, res, is_admin)
         return
