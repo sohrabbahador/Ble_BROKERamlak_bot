@@ -9,7 +9,7 @@ ADMIN_STATES = {}
 def get_meter_range(txt):
     m_map = {
         "زیر ۸۰ متر": (0, 80), "۸۰ الی ۱۰۰ متر": (80, 100),
-        "۱۰۰ الی ۱۲۰ متر": (100, 120), "۱۲۰ متر به بالا": (120, 999),
+        "۱۰۰ الی ۱۲۰ متر": (100, 120), "۱۲۵ متر به بالا": (125, 999),
         "۱۰۰ الی ۱۲۵ متر": (100, 125), "۱۲۵ الی ۱۵۰ متر": (125, 150),
         "۱۵۰ الی ۱۷۰ متر": (150, 170), "۱۷۰ متر به بالا": (170, 999)
     }
@@ -111,6 +111,22 @@ async def handle_user_actions(cid, user_id, txt, s, is_admin, *args, **kwargs):
             mmin=v[0],
             mmax=v[1],
             page=s.get("page", 1),
+            cid=cid,
+            user_id=user_id
+        )
+        if not res:
+            await send_msg(cid, "❌ در حال حاضر هیچ ملکی با این مشخصات یافت نشد.")
+        else:
+            await show_results(cid, res, is_admin)
+        return
+
+    # ۷. جستجوی متنی آزاد (منطقه / کلیدواژه مثل جنت‌آباد)
+    else:
+        current_kind = s.get("kind") or "فروش"
+        res = search_files(
+            kind=current_kind,
+            query=txt.strip(),
+            page=1,
             cid=cid,
             user_id=user_id
         )
