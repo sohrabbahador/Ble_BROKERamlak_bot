@@ -158,11 +158,16 @@ async def process_bale_webhook(d: dict):
             await register_alert(cid, uid, s)
         elif txt == "🔑 رهن و اجاره" or s.get("flow") == "rent":
             if txt == "🔑 رهن و اجاره":
-                set_session(uid, flow="rent")
+                set_session(uid, flow="rent", khab=None)
             await handle_rent_flow(cid, uid, s, txt)
         elif txt == "🏠 خرید" or s.get("flow") == "buy":
             if txt == "🏠 خرید":
-                set_session(uid, flow="buy")
+                set_session(uid, flow="buy", khab=None)
+                from core import handle_start_flow
+                await handle_start_flow(cid, uid, "خرید")
+                return
+            if s.get("flow") == "rent":
+                set_session(uid, flow="buy", khab=None)
                 from core import handle_start_flow
                 await handle_start_flow(cid, uid, "خرید")
                 return
