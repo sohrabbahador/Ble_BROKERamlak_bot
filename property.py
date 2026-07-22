@@ -34,7 +34,7 @@ async def handle_user_actions(cid, user_id, txt, s, is_admin, *args, **kwargs):
 
 
     # ۱. مدیریت بازگشت و شروع (اصلاح شده برای پشتیبانی از انواع متن منوی اصلی)
-    if txt in ["/start", "بازگشت به منو اصلی", "🏠 منوی اصلی", "منوی اصلی", "🔙 مرحله قبل"]:
+    if txt in ["/start", "بازگشت به منو اصلی",بازگشت به منوی اصلی", "منوی اصلی", "🔙 مرحله قبل"]:
         set_session(user_id, page=1, kind=None, khab=None, budje_min=None, budje_max=None, meter_min=None, meter_max=None, flow=None)
         push_history(user_id, "main")
         await send_msg(cid, "به منوی اصلی بازگشتید.", kb_main(is_admin))
