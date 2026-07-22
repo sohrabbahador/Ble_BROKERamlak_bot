@@ -3,7 +3,9 @@
 from core import push_history, search_files, send_msg, set_session, show_results
 from keyboards import (
     kb_khab as kb_khab_selection,
+    kb_main,
 )
+from config import ADMIN_ID
 
 
 # تابع مدیریت کامل جریان رهن و اجاره - کاملاً مجزا از خرید
@@ -13,13 +15,14 @@ async def handle_rent_flow(cid, user_id, s, txt):
     # ثبت وضعیت کاربر در سشن برای جلوگیری از تداخل با مسیر خرید در main.py
     set_session(user_id, flow="rent")
 
-    # ۱. بررسی درخواست بازگشت به منوی اصلی
-    if txt == "🏠 منوی اصلی" or txt == "بازگشت به منو اصلی":
-        # پاک کردن سشن مربوط به خواب و وضعیت جریان برای شروع مجدد
-        set_session(user_id, khab=None, flow=None)
+    # ۱. بررسی درخواست بازگشت به منوی اصلی (اصلاح شده با ارسال کیبورد اصلی و ریست کامل سشن)
+    if txt in ["🏠 منوی اصلی", "منوی اصلی", "بازگشت به منو اصلی"]:
+        set_session(user_id, khab=None, flow=None, page=1, budje_min=None, budje_max=None)
+        is_admin = (user_id == ADMIN_ID)
         await send_msg(
             cid,
             "به منوی اصلی بازگشتید.",
+            kb_main(is_admin)
         )
         return
 
