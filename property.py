@@ -48,6 +48,10 @@ async def handle_user_actions(cid, user_id, txt, s, is_admin, *args, **kwargs):
 
     # ۳. انتخاب تعداد خواب
     elif "خواب" in txt and "مشاهده" not in txt:
+        # محافظ برای جلوگیری از ورود مسیر رهن و اجاره به بخش خرید
+        if s.get("flow") == "rent":
+            return
+            
         clean_khab = txt.strip()
         set_session(user_id, khab=clean_khab)
         push_history(user_id, "select_khab")
