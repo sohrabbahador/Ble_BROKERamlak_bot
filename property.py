@@ -42,7 +42,7 @@ async def handle_user_actions(cid, user_id, txt, s, is_admin, *args, **kwargs):
 
     # ۲. انتخاب نوع معامله
     elif txt in ["🏠 خرید", "🏠 فروش", "🔑 رهن و اجاره"]:
-        kind_map = {"🏠 خرید": "خرید", "🏠 فروش": "فروش", "🔑 رهن و اجاره": "رهن_اجاره"}
+        kind_map = {"🏠 خرید": "فروش", "🏠 فروش": "فروش", "🔑 رهن و اجاره": "رهن_اجاره"}
         selected_kind = kind_map[txt]
         set_session(user_id, kind=selected_kind)
         await handle_start_flow(cid, user_id, selected_kind)
@@ -55,7 +55,7 @@ async def handle_user_actions(cid, user_id, txt, s, is_admin, *args, **kwargs):
             
         clean_khab = txt.strip()
         # حفظ یا تعیین پیش‌فرض kind در صورت خالی بودن
-        current_kind = s.get("kind") or "خرید"
+        current_kind = s.get("kind") or "فروش"
         set_session(user_id, khab=clean_khab, flow="buy", kind=current_kind)
         push_history(user_id, "select_khab")
         kb = kb_budget_2khab() if clean_khab == "۲ خواب" else kb_budget_3khab() if clean_khab == "۳ خواب" else kb_budget_2khab()
@@ -74,7 +74,7 @@ async def handle_user_actions(cid, user_id, txt, s, is_admin, *args, **kwargs):
 
     # ۵. مشاهده همه (اصلاح‌شده برای جستجوی دقیق بدون خطای عدم یافتن ملک)
     elif "مشاهده همه" in txt or "📋 مشاهده همه فایل‌ها" in txt or ("مشاهده" in txt and "فایل" in txt):
-        current_kind = s.get("kind") or "خرید"
+        current_kind = s.get("kind") or "فروش"
         res = search_files(
             kind=current_kind,
             khab=s.get("khab"),
@@ -102,7 +102,7 @@ async def handle_user_actions(cid, user_id, txt, s, is_admin, *args, **kwargs):
         set_session(user_id, meter_min=v[0], meter_max=v[1])
         push_history(user_id, "select_meter")
         
-        current_kind = s.get("kind") or "خرید"
+        current_kind = s.get("kind") or "فروش"
         res = search_files(
             kind=current_kind,
             khab=s.get("khab"),
