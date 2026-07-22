@@ -156,20 +156,23 @@ async def process_bale_webhook(d: dict):
             await show_support(cid)
         elif "گوش‌به‌زنگ" in txt:
             await register_alert(cid, uid, s)
-        elif "خرید" in txt or "رهن و اجاره" in txt or s.get("flow") == "rent":
-            if "رهن و اجاره" in txt or s.get("flow") == "rent":
-                if "رهن و اجاره" in txt:
-                    set_session(uid, flow="rent")
-                await handle_rent_flow(cid, uid, s, txt)
-            else:
+        elif txt == "🔑 رهن و اجاره" or s.get("flow") == "rent":
+            if txt == "🔑 رهن و اجاره":
+                set_session(uid, flow="rent")
+            await handle_rent_flow(cid, uid, s, txt)
+        elif txt == "🏠 خرید" or s.get("flow") == "buy":
+            if txt == "🏠 خرید":
                 set_session(uid, flow="buy")
                 from core import handle_start_flow
-                await handle_start_flow(cid, uid, txt)
+                await handle_start_flow(cid, uid, "خرید")
+                return
+            await handle_user_actions(cid, uid, txt, s, adm)
         else:
             if s.get("flow") == "rent":
                 await handle_rent_flow(cid, uid, s, txt)
             else:
                 await handle_user_actions(cid, uid, txt, s, adm)
+                    
 
     except Exception as e:
         print(f"Error in process_bale_webhook: {e}")
