@@ -50,8 +50,8 @@ async def handle_rent_flow(cid, user_id, s, txt):
     if "خواب" in txt:
         clean_khab = txt.strip()
 
-        # ذخیره تعداد خواب در سشن کاربر و ثبت تاریخچه
-        set_session(user_id, khab=clean_khab)
+        # ذخیره تعداد خواب در سشن کاربر، تثبیت فلو روی رهن و ثبت تاریخچه
+        set_session(user_id, khab=clean_khab, flow="rent")
         push_history(user_id, "select_khab")
 
         # جستجو بر اساس تعداد خواب انتخاب شده
