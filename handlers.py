@@ -156,27 +156,22 @@ async def process_bale_webhook(d: dict):
             await show_support(cid)
         elif "گوش‌به‌زنگ" in txt:
             await register_alert(cid, uid, s)
-        elif txt == "🔑 رهن و اجاره" or s.get("flow") == "rent":
-            if txt == "🔑 رهن و اجاره":
-                set_session(uid, flow="rent", khab=None)
+            
+        elif txt == "🔑 رهن و اجاره":
+            set_session(uid, flow="rent", khab=None)
             await handle_rent_flow(cid, uid, s, txt)
-        elif txt == "🏠 خرید" or s.get("flow") == "buy":
-            if txt == "🏠 خرید":
-                set_session(uid, flow="buy", khab=None)
-                from core import handle_start_flow
-                await handle_start_flow(cid, uid, "خرید")
-                return
-            if s.get("flow") == "rent":
-                set_session(uid, flow="buy", khab=None)
-                from core import handle_start_flow
-                await handle_start_flow(cid, uid, "خرید")
-                return
+        elif txt == "🏠 خرید":
+            set_session(uid, flow="buy", khab=None)
+            from core import handle_start_flow
+            await handle_start_flow(cid, uid, "خرید")
+            return
+            
+        elif s.get("flow") == "buy":
             await handle_user_actions(cid, uid, txt, s, adm)
+        elif s.get("flow") == "rent":
+            await handle_rent_flow(cid, uid, s, txt)
         else:
-            if s.get("flow") == "rent":
-                await handle_rent_flow(cid, uid, s, txt)
-            else:
-                await handle_user_actions(cid, uid, txt, s, adm)
+            await handle_user_actions(cid, uid, txt, s, adm)
 
     except Exception as e:
         print(f"Error in process_bale_webhook: {e}")
