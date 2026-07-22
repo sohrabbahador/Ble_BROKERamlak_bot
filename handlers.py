@@ -163,7 +163,7 @@ async def process_bale_webhook(d: dict):
         elif txt == "🏠 خرید":
             set_session(uid, flow="buy", khab=None)
             from core import handle_start_flow
-            await handle_start_flow(cid, uid, "خرید")
+            await handle_start_flow(cid, uid, "فروش")
             return
             
         elif s.get("flow") == "buy":
