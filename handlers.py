@@ -1,4 +1,4 @@
-import httpx
+Import httpx
 from config import ADMIN_ID, MAIN_CHANNEL_URL, TOKEN, db
 from core import (
     get_session, 
@@ -116,12 +116,13 @@ async def process_bale_webhook(d: dict):
 
         if adm:
             if "📊 آمار ربات" in txt:
-                await send_msg(cid, get_bot_stats())
+                stats_text = await get_bot_stats()
+                await send_msg(cid, stats_text)
                 return
             elif "👥 لیست کاربران" in txt:
                 await send_msg(cid, get_users_list())
                 return
-            elif "📢 ارسال همگانی" in txt:
+            elif "📢 ارسال همگانی" in txt or "ارسال پیام همگانی" in txt:
                 db["admin_state"].update_one(
                     {"_id": cid},
                     {"$set": {"waiting_broadcast": True}},
