@@ -1,4 +1,3 @@
-# core.py
 import json
 import re
 import httpx
@@ -7,6 +6,9 @@ from config import db, TOKEN, BASE_URL, MAIN_CHANNEL_URL, ADMIN_ID
 def init_db():
     db["sessions"].create_index("user_id", unique=True)
     db["users"].create_index("user_id", unique=True)
+    # ایندکس‌گذاری برای افزایش چشمگیر سرعت جستجوی املاک و فیلترها
+    db["files"].create_index([("kind", 1), ("khab", 1), ("price", 1)])
+    db["files"].create_index("id")
     
     if db["counters"].count_documents({"_id": "file_id"}) == 0:
         db["counters"].insert_one({"_id": "file_id", "sequence_value": 0})
@@ -64,15 +66,13 @@ def extract_info(text):
         price = int(rahn_value + converted_ejare)
     else:
         billions, millions = 0, 0
-        # بهبود الگو برای استخراج دقیق و همزمان میلیارد و میلیون با هرگونه فاصله و نگارش
         b_match = re.search(r"(\d+)\s*(?:میلیارد|میلیاردی)", text_en)
         m_match = re.search(r"میلیارد[^\d]*(\d+)\s*(?:میلیون|میلیونی)", text_en) or re.search(r"(\d+)\s*(?:میلیون|میلیونی)", text_en)
         
         if b_match: billions = int(b_match.group(1)) * 1000000000
         if m_match: 
             val = int(m_match.group(1))
-            # اگر عدد میلیون به صورت مستقل آمده باشد یا بعد از میلیارد
-            if val < 1000:  # مثل 400 میلیون
+            if val < 1000:
                 millions = val * 1000000
             else:
                 millions = val
