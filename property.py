@@ -9,7 +9,7 @@ ADMIN_STATES = {}
 def get_meter_range(txt):
     m_map = {
         "زیر ۸۰ متر": (0, 80), "۸۰ الی ۱۰۰ متر": (80, 100),
-        "۱۰۰ الی ۱۲۰ متر": (100, 120), "۱۲۰ متر به بالا": (120, 999),
+        "۱۰۰ الی ۱۲۰ متر": (100, 120), "۱۲۵ متر به بالا": (120, 999),
         "۱۰۰ الی ۱۱۲۵ متر": (100, 125), "۱۲۵ الی ۱۵۰ متر": (125, 150),
         "۱۵۰ الی ۱۷۰ متر": (150, 170), "۱۷۰ متر به بالا": (170, 999)
     }
@@ -32,9 +32,14 @@ def parse_range_budget(txt):
     return None, None
 
 async def handle_user_actions(cid, user_id, txt, s, is_admin, *args, **kwargs):
-    from core import search_files, show_results, handle_start_flow, parse_budget_text, push_history, set_session
+    from core import search_files, show_results, handle_start_flow, parse_budget_text, push_history, set_session, handle_back_step
     from keyboards import kb_main, kb_budget_1khab, kb_budget_2khab, kb_budget_3khab, kb_budget_4khab, kb_meter_2khab, kb_meter_3khab, kb_meter_4khab
 
+
+    # ۰. مدیریت دکمه مرحله قبل در بالاترین اولویت برای جلوگیری از تداخل
+    if "مرحله قبل" in txt or "🔙 مرحله قبل" in txt:
+        await handle_back_step(cid, user_id, is_admin)
+        return
 
     # ۱. مدیریت کامل بازگشت و منوی اصلی
     if any(item in txt for item in ["بازگشت به منوی اصلی", "منوی اصلی", "/start"]):
