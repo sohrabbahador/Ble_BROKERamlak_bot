@@ -186,6 +186,10 @@ async def process_bale_webhook(d: dict):
                 "🔍 **جستجوی سریع املاک**\n\nلطفاً نام محله (مانند **جنت‌آباد**)، تعداد خواب یا مشخصات مورد نظر خود را تایپ کرده و ارسال کنید:"
             )
             return
+        elif "بازگشت به منو اصلی" in txt or txt == "منوی اصلی":
+            set_session(uid, flow=None, khab=None)
+            await send_msg(cid, "به منوی اصلی بازگشتید:", kb_main(adm))
+            return
             
         else:
             # دریافت آخرین وضعیت سشن
