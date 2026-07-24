@@ -218,3 +218,10 @@ def parse_budget_text(text):
     if m_match: millions = int(m_match.group(1)) * 1000000
     total = billions + millions
     return total if total > 0 else None
+
+def search_files_by_keyword(keyword, page=1):
+    limit = 5
+    skip = (page - 1) * limit
+    # جستجوی ساده و بدون حساسیت به حروف کوچک و بزرگ در متن فایل‌ها
+    query = {"text": {"$regex": keyword, "$options": "i"}}
+    return list(db["files"].find(query).skip(skip).limit(limit))
