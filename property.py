@@ -113,8 +113,8 @@ async def handle_user_actions(cid, user_id, txt, s, is_admin, *args, **kwargs):
     elif "مشاهده همه" in txt or "📋 مشاهده همه فایل‌ها" in txt or ("مشاهده" in txt and "فایل" in txt):
         current_kind = s.get("kind") or "فروش"
         
-        # اگر کاربر در مرحله انتخاب خواب است (هنوز فیلتر خوابی ثبت نشده)، فیلتر خواب اعمال نمی‌شود
-        current_khab = s.get("khab") if s.get("budje_min") is not None else None
+        # اعمال فیلتر خواب به محض اینکه کاربر خواب را انتخاب کرده باشد
+        current_khab = s.get("khab")
         
         res = search_files(
             kind=current_kind,
