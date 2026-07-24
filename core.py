@@ -222,6 +222,11 @@ def parse_budget_text(text):
 def search_files_by_keyword(keyword, page=1):
     limit = 5
     skip = (page - 1) * limit
-    # جستجوی ساده و بدون حساسیت به حروف کوچک و بزرگ در متن فایل‌ها
-    query = {"text": {"$regex": keyword, "$options": "i"}}
+    
+    # تبدیل فاصله و نیم‌فاصله به یک الگوی منعطف در ریجکس
+    # این الگو باعث می‌شود کاربر چه با فاصله و چه با نیم‌فاصله (یا بدون آن) بنویسد، نتیجه پیدا شود
+    normalized_keyword = re.sub(r'[\s‌]+', r'[\\s‌]*', keyword.strip())
+    
+    query = {"text": {"$regex": normalized_keyword, "$options": "i"}}
     return list(db["files"].find(query).skip(skip).limit(limit))
+    
