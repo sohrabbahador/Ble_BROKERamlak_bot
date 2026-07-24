@@ -28,8 +28,16 @@ async def show_results(cid, res, is_admin):
         await send_msg(cid, "❌ متاسفانه ملکی با این مشخصات یافت نشد. فیلترها را تغییر دهید یا مجدداً تلاش کنید.", kb_main(is_admin))
         return
     
-    tasks = []
+    seen_ids = set()
+    unique_res = []
     for r in res:
+        fid = r.get("id")
+        if fid not in seen_ids:
+            seen_ids.add(fid)
+            unique_res.append(r)
+
+    tasks = []
+    for r in unique_res:
         cap = f"🏠 پیشنهاد ویژه بروکر\n\n{r['text'][:300]}..."
         photos = json.loads(r["photos"]) if r.get("photos") else []
         kb = inline_action(r["id"])
