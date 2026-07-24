@@ -109,21 +109,16 @@ async def handle_user_actions(cid, user_id, txt, s, is_admin, *args, **kwargs):
             await send_msg(cid, f"✅ بودجه ثبت شد.\nحالا حدود متراژ را انتخاب کنید:", kb_m)
         return
 
-    # ۵. مشاهده همه (اصلاح‌شده جهت شناسایی متن‌های پویا مثل مشاهده همه فایل‌های ۱ خواب و غیره)
-    elif "مشاهده همه" in txt or "مشاهده" in txt and "فایل" in txt:
+    # ۵. مشاهده همه
+    elif "مشاهده همه" in txt or "📋 مشاهده همه فایل‌ها" in txt or ("مشاهده" in txt and "فایل" in txt):
         current_kind = s.get("kind") or "فروش"
         
-        # استخراج تعداد خواب از متن دکمه (اگر کاربر روی کلیدهای ترکیبی مثل "مشاهده همه فایل‌های ۱ خواب" زده باشد)
-        target_khab = s.get("khab")
-        if not target_khab:
-            for khab_name in ["۱ خواب", "۲ خواب", "۳ خواب", "۴ خواب و بیشتر"]:
-                if khab_name in txt:
-                    target_khab = khab_name
-                    break
-
+        # استفاده مستقیم از فیلتر خواب ثبت شده در سشن بدون پاک کردن یا بازنشانی آن
+        current_khab = s.get("khab")
+        
         res = search_files(
             kind=current_kind,
-            khab=target_khab,
+            khab=current_khab,
             bmin=s.get("budje_min"),
             bmax=s.get("budje_max"),
             mmin=s.get("meter_min"),
@@ -132,9 +127,7 @@ async def handle_user_actions(cid, user_id, txt, s, is_admin, *args, **kwargs):
             cid=cid,
             user_id=user_id
         )
-        if not res and target_khab:
-            res = search_files(kind=current_kind, page=1, cid=cid, user_id=user_id)
-            
+        
         if not res:
             await send_msg(cid, "❌ در حال حاضر هیچ ملکی با این مشخصات یافت نشد.")
         else:
