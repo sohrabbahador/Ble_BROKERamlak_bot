@@ -141,13 +141,14 @@ async def process_bale_webhook(d: dict):
                 )
                 await send_msg(cid, "به منوی اصلی بازگشتید:", kb_main(adm))
             else:
-                sc = sum(
-                    1
-                    for u in db["users"].find({}, {"user_id": 1})
-                    if await send_msg(
-                        u["user_id"], f"📢 **پیام مدیریت:**\n\n{txt}"
-                    )
-                )
+                users = list(db["users"].find({}, {"user_id": 1}))
+                sc = 0
+                for u in users:
+                    try:
+                        await send_msg(u["user_id"], f"📢 **پیام مدیریت:**\n\n{txt}")
+                        sc += 1
+                    except:
+                        pass
                 db["admin_state"].update_one(
                     {"_id": cid},
                     {"$set": {"waiting_broadcast": False}},
