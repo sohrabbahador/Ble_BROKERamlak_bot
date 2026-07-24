@@ -10,30 +10,33 @@ def get_meter_range(txt):
     m_map = {
         "زیر ۸۰ متر": (0, 80), "۸۰ الی ۱۰۰ متر": (80, 100),
         "۱۰۰ الی ۱۲۰ متر": (100, 120), "۱۲۰ متر به بالا": (120, 999),
-        "۱۰۰ الی ۱۲۵ متر": (100, 125), "۱۲۵ الی ۱۵۰ متر": (125, 150),
+        "۱۰۰ الی ۱۱۲۵ متر": (100, 125), "۱۲۵ الی ۱۵۰ متر": (125, 150),
         "۱۵۰ الی ۱۷۰ متر": (150, 170), "۱۷۰ متر به بالا": (170, 999)
     }
     return m_map.get(txt, (0, 999))
 
 def parse_range_budget(txt):
     try:
-        if " الی " in txt and "میلیارد" in txt:
+        if "زیر" in txt and "میلیارد" in txt:
+            val = int(txt.replace("زیر", "").replace("میلیارد", "").strip().replace(",", "")) * 1_000_000_000
+            return 0, val
+        elif " الی " in txt and "میلیارد" in txt:
             parts = txt.replace("میلیارد", "").split(" الی ")
             min_val = int(parts[0].strip().replace(",", "")) * 1_000_000_000
             max_val = int(parts[1].strip().replace(",", "")) * 1_000_000_000
             return min_val, max_val
         elif "به بالا" in txt:
-            val = int(txt.replace(" میلیارد به بالا", "").strip().replace(",", "")) * 1_000_000_000
+            val = int(txt.replace(" میلیارد به بالا", "").replace("به بالا", "").strip().replace(",", "")) * 1_000_000_000
             return val, 999_999_999_999
     except: return None, None
     return None, None
 
 async def handle_user_actions(cid, user_id, txt, s, is_admin, *args, **kwargs):
     from core import search_files, show_results, handle_start_flow, parse_budget_text, push_history, set_session
-    from keyboards import kb_main, kb_budget_2khab, kb_budget_3khab, kb_meter_2khab, kb_meter_3khab
+    from keyboards import kb_main, kb_budget_1khab, kb_budget_2khab, kb_budget_3khab, kb_meter_2khab, kb_meter_3khab
 
 
-    # ۱. مدیریت کامل بازگشت و منوی اصلی (با پشتیبانی کامل از نام دقیق "بازگشت به منوی اصلی" و سایر حالت‌ها)
+    # ۱. مدیریت کامل بازگشت و منوی اصلی
     if any(item in txt for item in ["بازگشت به منوی اصلی", "منوی اصلی", "/start"]):
         set_session(user_id, page=1, kind=None, khab=None, budje_min=None, budje_max=None, meter_min=None, meter_max=None, flow=None)
         push_history(user_id, "main")
@@ -54,25 +57,40 @@ async def handle_user_actions(cid, user_id, txt, s, is_admin, *args, **kwargs):
             return
             
         clean_khab = txt.strip()
-        # حفظ یا تعیین پیش‌فرض kind در صورت خالی بودن
         current_kind = s.get("kind") or "فروش"
         set_session(user_id, khab=clean_khab, flow="buy", kind=current_kind)
         push_history(user_id, "select_khab")
-        kb = kb_budget_2khab() if clean_khab == "۲ خواب" else kb_budget_3khab() if clean_khab == "۳ خواب" else kb_budget_2khab()
+        
+        # انتخاب کیبورد بودجه بر اساس تعداد خواب (شامل ۱ خواب)
+        if clean_khab == "۱ خواب":
+            kb = kb_budget_1khab()
+        elif clean_khab == "۳ خواب":
+            kb = kb_budget_3khab()
+        else:
+            kb = kb_budget_2khab()
+            
         await send_msg(cid, f"✅ {clean_khab} انتخاب شد. حالا بودجه را تعیین کنید:", kb)
         return
 
     # ۴. مدیریت بودجه
-    elif any(val in txt for val in ["میلیارد", "الی"]) and "متر" not in txt:
+    elif any(val in txt for val in ["میلیارد", "الی", "زیر"]) and "متر" not in txt:
         b_min, b_max = parse_range_budget(txt)
         if b_min is not None:
             set_session(user_id, budje_min=b_min, budje_max=b_max)
             khab_val = s.get("khab", "۲ خواب")
-            kb_m = kb_meter_2khab() if khab_val == "۲ خواب" else kb_meter_3khab() if khab_val == "۳ خواب" else kb_meter_2khab()
+            
+            # تعیین کیبورد متراژ مناسب بر اساس تعداد خواب
+            if khab_val == "۱ خواب":
+                kb_m = kb_meter_2khab()  # یا متراژ متناسب با ۱ خواب در صورت وجود
+            elif khab_val == "۳ خواب":
+                kb_m = kb_meter_3khab()
+            else:
+                kb_m = kb_meter_2khab()
+                
             await send_msg(cid, f"✅ بودجه ثبت شد.\nحالا حدود متراژ را انتخاب کنید:", kb_m)
         return
 
-    # ۵. مشاهده همه (اصلاح‌شده برای جستجوی دقیق بدون خطای عدم یافتن ملک)
+    # ۵. مشاهده همه
     elif "مشاهده همه" in txt or "📋 مشاهده همه فایل‌ها" in txt or ("مشاهده" in txt and "فایل" in txt):
         current_kind = s.get("kind") or "فروش"
         res = search_files(
@@ -87,7 +105,6 @@ async def handle_user_actions(cid, user_id, txt, s, is_admin, *args, **kwargs):
             user_id=user_id
         )
         if not res:
-            # جستجوی پشتیبان بدون فیلتر تعداد خواب/بودجه در صورت خالی بودن نتیجه اولیه
             res = search_files(kind=current_kind, page=1, cid=cid, user_id=user_id)
             
         if not res:
