@@ -223,10 +223,10 @@ def search_files_by_keyword(keyword, page=1):
     limit = 5
     skip = (page - 1) * limit
     
-    # تبدیل فاصله و نیم‌فاصله به یک الگوی منعطف در ریجکس
-    # این الگو باعث می‌شود کاربر چه با فاصله و چه با نیم‌فاصله (یا بدون آن) بنویسد، نتیجه پیدا شود
+    # تبدیل فاصله و نیم‌فاصله به الگوی منعطف برای تمام کلمات و اعداد
     normalized_keyword = re.sub(r'[\s‌]+', r'[\\s‌]*', keyword.strip())
     
     query = {"text": {"$regex": normalized_keyword, "$options": "i"}}
     return list(db["files"].find(query).skip(skip).limit(limit))
+    
     
