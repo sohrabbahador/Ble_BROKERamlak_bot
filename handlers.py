@@ -6,7 +6,8 @@ from core import (
     register_user, 
     save_file, 
     send_msg,
-    set_session
+    set_session,
+    search_files_by_keyword
 )
 from archive import (
     add_to_favorites,
@@ -18,7 +19,8 @@ from archive import (
     remove_from_favorites,
     send_welcome_message,
     show_favorites,
-    show_support
+    show_support,
+    show_results
 )
 from keyboards import kb_main
 from property import handle_user_actions
@@ -184,7 +186,14 @@ async def process_bale_webhook(d: dict):
             elif s.get("flow") == "rent":
                 await handle_rent_flow(cid, uid, s, txt)
             else:
-                await handle_user_actions(cid, uid, txt, s, adm)
+                # جستجوی متنی آزاد (مثل جنت‌آباد) در صورت عدم تطابق با دکمه‌ها و فلوها
+                keyword = txt.strip()
+                res = search_files_by_keyword(keyword, page=1)
+                
+                if res:
+                    await show_results(cid, res, adm)
+                else:
+                    await send_msg(cid, "❌ متأسفانه موردی با این مشخصات یا کلمه کلیدی یافت نشد.")
 
     except Exception as e:
         print(f"Error in process_bale_webhook: {e}")
