@@ -106,6 +106,12 @@ async def check_alerts_and_notify(text, kind, khab, price, meter, photos):
 
 async def save_file(text, photos_list=None):
     k, kh, p, m, l = extract_info(text)
+    
+    # جلوگیری از ثبت رکورد تکراری اگر عین متن از قبل در دیتابیس وجود داشته باشد
+    existing = db["files"].find_one({"text": text})
+    if existing:
+        return
+
     photos_json = json.dumps(photos_list if photos_list else [])
     file_id = get_next_sequence_value("file_id")
     
@@ -173,7 +179,17 @@ async def show_results(cid, res, is_fav=False):
     if not res:
         await send_msg(cid, "❌ هیچ ملکی با این مشخصات یافت نشد.")
         return
+    
+    # جلوگیری از ارسال تکراری فایل‌ها با استفاده از شناسه یکتا (id)
+    seen_ids = set()
+    unique_res = []
     for item in res:
+        fid = item.get("id")
+        if fid not in seen_ids:
+            seen_ids.add(fid)
+            unique_res.append(item)
+
+    for item in unique_res:
         photos = json.loads(item.get("photos", "[]"))
         cap = item.get("text", "")
         fid = item.get("id")
