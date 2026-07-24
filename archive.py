@@ -1,6 +1,6 @@
-# archive.py
 import json
 import re
+import asyncio
 from config import db
 from core import get_next_sequence_value, get_session, send_msg, send_pic, set_session
 from keyboards import inline_action, kb_khab, kb_main, kb_budget_2khab, kb_budget_3khab, kb_meter_2khab, kb_meter_3khab
@@ -20,17 +20,24 @@ def push_history(user_id, state_name):
     if not history or history[-1] != state_name: history.append(state_name)
     set_session(user_id, history=history)
 
-# ۳. نمایش لیست املاک پیدا شده
+# ۳. نمایش لیست املاک پیدا شده (بهینه‌سازی شده با ارسال موازی برای افزایش سرعت)
 async def show_results(cid, res, is_admin):
     if not res:
         # اصلاح: kb_main باید اجرا شود kb_main(is_admin)
         await send_msg(cid, "❌ متاسفانه ملکی با این مشخصات یافت نشد. فیلترها را تغییر دهید یا مجدداً تلاش کنید.", kb_main(is_admin))
         return
+    
+    tasks = []
     for r in res:
-        cap = f"🏠 **پیشنهاد ویژه بروکر**\n\n{r['text'][:300]}..."
+        cap = f"🏠 پیشنهاد ویژه بروکر\n\n{r['text'][:300]}..."
         photos = json.loads(r["photos"]) if r.get("photos") else []
-        if photos: await send_pic(cid, photos[0], cap, inline_action(r["id"]))
-        else: await send_msg(cid, cap, inline_action(r["id"]))
+        kb = inline_action(r["id"])
+        if photos:
+            tasks.append(send_pic(cid, photos[0], cap, kb))
+        else:
+            tasks.append(send_msg(cid, cap, kb))
+            
+    await asyncio.gather(*tasks)
     await send_msg(cid, "📄 برای مشاهده گزینه‌های بیشتر:", kb_next())
 
 # ۴. مدیریت بازگشت به مرحله قبلی
@@ -71,7 +78,7 @@ async def handle_start_flow(cid, user_id, kind):
 
 # ۶. نمایش پشتیبانی
 async def show_support(cid):
-    await send_msg(cid, "📞 **پشتیبانی بروکر**\n\nبا کلیک روی دکمه‌های زیر تماس بگیرید یا پیام دهید:", {
+    await send_msg(cid, "📞 پشتیبانی بروکر\n\nبا کلیک روی دکمه‌های زیر تماس بگیرید یا پیام دهید:", {
         "inline_keyboard": [
             [{"text": "📱 09123692401", "url": "tel:+989123692401"}, {"text": "📱 09003692401", "url": "tel:+989003692401"}],
             [{"text": "🟢 پیام در بله 💬", "url": "https://ble.ir/sohrabbahador"}]
@@ -94,7 +101,7 @@ async def register_alert(cid, user_id, s):
 async def get_bot_stats():
     stats = db["stats"].find_one({"_id": "clicks"}) or {}
     return (
-        f"📊 **آمار:**\n"
+        f"📊 آمار:\n"
         f"👤 کل کاربران: {db['users'].count_documents({})}\n"
         f"🏠 کل املاک: {db['files'].count_documents({})}\n"
         f"🔍 کلیک خرید: {stats.get('buy_clicks', 0)}\n"
@@ -104,7 +111,7 @@ async def get_bot_stats():
 # ۹. دریافت لیست کاربران
 def get_users_list():
     users = list(db["users"].find({}, {"user_id": 1, "first_name": 1}))
-    return "\n".join([f"• `{u['user_id']}` ({u.get('first_name', 'بدون نام')})" for u in users])
+    return "\n".join([f"• {u['user_id']} ({u.get('first_name', 'بدون نام')})" for u in users])
 
 # ۱۰. مدیریت عضویت (اصلاح شده برای رفع ارور JSON serialization)
 async def handle_membership_flow(cid, user_id, is_admin, cb_data, txt, MAIN_CHANNEL_URL, kb_main_func, is_member_func, s=None):
@@ -112,7 +119,6 @@ async def handle_membership_flow(cid, user_id, is_admin, cb_data, txt, MAIN_CHAN
     
     is_member = False
     try:
-        # اگر is_member_func یک تابع است آن را اجرا می‌کنیم
         is_member = await is_member_func(user_id) if callable(is_member_func) else False
     except Exception:
         is_member = False
@@ -122,20 +128,18 @@ async def handle_membership_flow(cid, user_id, is_admin, cb_data, txt, MAIN_CHAN
         return False
 
     inline_kb = {"inline_keyboard": [[{"text": "🚀 عضویت در کانال بروکر", "url": MAIN_CHANNEL_URL}], [{"text": "✅ عضو شدم", "callback_data": "check_membership"}]]}
-    message = "❌ **هنوز عضو نشدید!**\nلطفاً ابتدا عضو شوید و سپس برگردید." if user_id in warned_users else f"🔔 *برای استفاده از منوی خدمات، لطفاً ابتدا عضو کانال شوید*.\n\n🚀 {MAIN_CHANNEL_URL}\n\n🔄 *پس از عضویت، برگردید و ادامه دهید.*"
+    message = "❌ هنوز عضو نشدید!\nلطفاً ابتدا عضو شوید و سپس برگردید." if user_id in warned_users else f"🔔 *برای استفاده از منوی خدمات، لطفاً ابتدا عضو کانال شوید*.\n\n🚀 {MAIN_CHANNEL_URL}\n\n🔄 *پس از عضویت، برگردید و ادامه دهید.*"
     if user_id not in warned_users: warned_users.add(user_id)
     
     await send_msg(cid, message, inline_kb)
     
-    # اصلاح حیاتی: kb_main_func باید اجرا شود تا دیکشنری برگرداند، نه اینکه خود تابع فرستاده شود
     main_kb = kb_main_func(is_admin) if callable(kb_main_func) else kb_main_func
     await send_msg(cid, "🔹 لطفاً پس از عضویت، دکمه تایید را بزنید.", main_kb)
     return True
 
 # ۱۱. ارسال پیام خوش‌آمدگویی
 async def send_welcome_message(cid, name, user_id, is_admin, MAIN_CHANNEL_URL, kb_main_func):
-    welcome_text = f"💐 **به خدمات ملکی هوشمند «بروکر املاک» خوش آمدید** 💐\n\n🚀 کانال اصلی:\n{MAIN_CHANNEL_URL}"
-    # اصلاح: kb_main_func باید اجرا شود
+    welcome_text = f"💐 به خدمات ملکی هوشمند «بروکر املاک» خوش آمدید 💐\n\n🚀 کانال اصلی:\n{MAIN_CHANNEL_URL}"
     main_kb = kb_main_func(is_admin) if callable(kb_main_func) else {}
     await send_msg(cid, welcome_text, main_kb)
 
@@ -162,4 +166,3 @@ async def search_files(cid, user_id, kind, khab, b_min, b_max, page=1):
     except Exception as e:
         print(f"Error in search_files: {e}")
         return []
-        
