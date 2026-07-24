@@ -1,4 +1,4 @@
-import httpx
+Import httpx
 from config import ADMIN_ID, MAIN_CHANNEL_URL, TOKEN, db
 from core import (
     get_session, 
@@ -173,12 +173,15 @@ async def process_bale_webhook(d: dict):
             await handle_start_flow(cid, uid, "فروش")
             return
             
-        elif s.get("flow") == "buy":
-            await handle_user_actions(cid, uid, txt, s, adm)
-        elif s.get("flow") == "rent":
-            await handle_rent_flow(cid, uid, s, txt)
         else:
-            await handle_user_actions(cid, uid, txt, s, adm)
+            # دریافت آخرین وضعیت سشن برای اعمال دقیق آخرین فیلترها (مانند خواب انتخاب‌شده)
+            s = get_session(uid) or {}
+            if s.get("flow") == "buy":
+                await handle_user_actions(cid, uid, txt, s, adm)
+            elif s.get("flow") == "rent":
+                await handle_rent_flow(cid, uid, s, txt)
+            else:
+                await handle_user_actions(cid, uid, txt, s, adm)
 
     except Exception as e:
         print(f"Error in process_bale_webhook: {e}")
