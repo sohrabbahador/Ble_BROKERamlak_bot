@@ -28,26 +28,13 @@ async def handle_rent_flow(cid, user_id, s, txt):
 
     # ۲. بررسی دکمه مشاهده همه فایل‌ها (بدون نیاز به انتخاب خواب)
     elif "مشاهده همه" in txt or ("مشاهده" in txt and "فایل" in txt):
-        res = search_files(
-            kind="رهن_اجاره",
-            khab=None,
-            bmin=None,
-            bmax=None,
-            mmin=None,
-            mmax=None,
-            page=s.get("page", 1),
-            cid=cid,
-            user_id=user_id
-        )
-
-        if not res:
-            await send_msg(
-                cid,
-                "❌ در حال حاضر هیچ ملکی در بخش رهن و اجاره یافت نشد.",
-                kb_khab_selection(),
-            )
-        else:
-            await show_results(cid, res, False)
+        # ارسال پیام با کلید شیشه‌ای لینک کانال رهن و اجاره
+        inline_kb = {
+            "inline_keyboard": [
+                [{"text": "📢 ورود به کانال رهن و اجاره", "url": "https://ble.ir/BROKER_amlak2"}]
+            ]
+        }
+        await send_msg(cid, "📢 برای مشاهده تمامی فایل‌های رهن و اجاره، روی دکمه زیر کلیک کنید:", inline_kb)
         return
 
     # ۳. بررسی انتخاب تعداد خواب توسط کاربر
