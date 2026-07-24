@@ -33,7 +33,7 @@ def parse_range_budget(txt):
 
 async def handle_user_actions(cid, user_id, txt, s, is_admin, *args, **kwargs):
     from core import search_files, show_results, handle_start_flow, parse_budget_text, push_history, set_session
-    from keyboards import kb_main, kb_budget_1khab, kb_budget_2khab, kb_budget_3khab, kb_meter_2khab, kb_meter_3khab
+    from keyboards import kb_main, kb_budget_1khab, kb_budget_2khab, kb_budget_3khab, kb_budget_4khab, kb_meter_2khab, kb_meter_3khab, kb_meter_4khab
 
 
     # ۱. مدیریت کامل بازگشت و منوی اصلی
@@ -61,13 +61,15 @@ async def handle_user_actions(cid, user_id, txt, s, is_admin, *args, **kwargs):
         set_session(user_id, khab=clean_khab, flow="buy", kind=current_kind)
         push_history(user_id, "select_khab")
         
-        # انتخاب کیبورد بودجه بر اساس تعداد خواب (شامل ۱ خواب)
+        # انتخاب کیبورد بودجه بر اساس تعداد خواب
         if clean_khab == "۱ خواب":
             kb = kb_budget_1khab()
+        elif clean_khab == "۲ خواب":
+            kb = kb_budget_2khab()
         elif clean_khab == "۳ خواب":
             kb = kb_budget_3khab()
-        else:
-            kb = kb_budget_2khab()
+        else:  # ۴ خواب و بیشتر
+            kb = kb_budget_4khab()
             
         await send_msg(cid, f"✅ {clean_khab} انتخاب شد. حالا بودجه را تعیین کنید:", kb)
         return
@@ -100,9 +102,11 @@ async def handle_user_actions(cid, user_id, txt, s, is_admin, *args, **kwargs):
                     await show_results(cid, res, is_admin)
                 return
             
-            # تعیین کیبورد متراژ مناسب بر اساس تعداد خواب برای بقیه موارد
+            # تعیین کیبورد متراژ مناسب بر اساس تعداد خواب
             if khab_val == "۳ خواب":
                 kb_m = kb_meter_3khab()
+            elif khab_val == "۴ خواب و بیشتر":
+                kb_m = kb_meter_4khab()
             else:
                 kb_m = kb_meter_2khab()
                 
