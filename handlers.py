@@ -1,4 +1,3 @@
-# handlers.py
 import httpx
 from config import ADMIN_ID, MAIN_CHANNEL_URL, TOKEN, db
 from core import (
@@ -26,19 +25,27 @@ from rent_property import handle_rent_flow
 
 
 async def is_member(user_id):
+    # بررسی کش در دیتابیس برای جلوگیری از درخواست‌های تکراری و افزایش سرعت پاسخ‌گویی
+    user_doc = db["users"].find_one({"user_id": user_id})
+    if user_doc and user_doc.get("is_channel_member"):
+        return True
+        
     try:
         u = f"@{MAIN_CHANNEL_URL.split('/')[-1].lstrip('@')}"
-        async with httpx.AsyncClient() as c:
+        async with httpx.AsyncClient(timeout=3.0) as c:
             r = await c.post(
                 f"https://tapi.bale.ai/bot{TOKEN}/getChatMember",
                 json={"chat_id": u, "user_id": user_id},
-                timeout=10,
             )
-            return r.json().get("ok") and r.json()["result"].get("status") in [
+            data = r.json()
+            is_ok = data.get("ok") and data["result"].get("status") in [
                 "member",
                 "administrator",
                 "creator",
             ]
+            if is_ok:
+                db["users"].update_one({"user_id": user_id}, {"$set": {"is_channel_member": True}}, upsert=True)
+            return is_ok
     except:
         return False
 
