@@ -79,10 +79,29 @@ async def handle_user_actions(cid, user_id, txt, s, is_admin, *args, **kwargs):
             set_session(user_id, budje_min=b_min, budje_max=b_max)
             khab_val = s.get("khab", "۲ خواب")
             
-            # تعیین کیبورد متراژ مناسب بر اساس تعداد خواب
+            # اگر ۱ خواب بود، مرحله متراژ رد شود و مستقیم فایل‌ها نمایش داده شوند
             if khab_val == "۱ خواب":
-                kb_m = kb_meter_2khab()  # یا متراژ متناسب با ۱ خواب در صورت وجود
-            elif khab_val == "۳ خواب":
+                push_history(user_id, "select_budje")
+                current_kind = s.get("kind") or "فروش"
+                res = search_files(
+                    kind=current_kind,
+                    khab="۱ خواب",
+                    bmin=b_min,
+                    bmax=b_max,
+                    mmin=s.get("meter_min"),
+                    mmax=s.get("meter_max"),
+                    page=1,
+                    cid=cid,
+                    user_id=user_id
+                )
+                if not res:
+                    await send_msg(cid, "❌ در حال حاضر هیچ ملکی با این مشخصات یافت نشد.")
+                else:
+                    await show_results(cid, res, is_admin)
+                return
+            
+            # تعیین کیبورد متراژ مناسب بر اساس تعداد خواب برای بقیه موارد
+            if khab_val == "۳ خواب":
                 kb_m = kb_meter_3khab()
             else:
                 kb_m = kb_meter_2khab()
@@ -93,9 +112,13 @@ async def handle_user_actions(cid, user_id, txt, s, is_admin, *args, **kwargs):
     # ۵. مشاهده همه
     elif "مشاهده همه" in txt or "📋 مشاهده همه فایل‌ها" in txt or ("مشاهده" in txt and "فایل" in txt):
         current_kind = s.get("kind") or "فروش"
+        
+        # اگر کاربر در مرحله انتخاب خواب است (هنوز فیلتر خوابی ثبت نشده)، فیلتر خواب اعمال نمی‌شود
+        current_khab = s.get("khab") if s.get("budje_min") is not None else None
+        
         res = search_files(
             kind=current_kind,
-            khab=s.get("khab"),
+            khab=current_khab,
             bmin=s.get("budje_min"),
             bmax=s.get("budje_max"),
             mmin=s.get("meter_min"),
@@ -104,7 +127,7 @@ async def handle_user_actions(cid, user_id, txt, s, is_admin, *args, **kwargs):
             cid=cid,
             user_id=user_id
         )
-        if not res:
+        if not res and current_khab:
             res = search_files(kind=current_kind, page=1, cid=cid, user_id=user_id)
             
         if not res:
