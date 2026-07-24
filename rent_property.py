@@ -31,10 +31,10 @@ async def handle_rent_flow(cid, user_id, s, txt):
         # ارسال پیام با کلید شیشه‌ای لینک کانال رهن و اجاره
         inline_kb = {
             "inline_keyboard": [
-                [{"text": "🚀 مشاهده همه فایلهای رهن و اجاره", "url": "https://ble.ir/BROKER_amlak2"}]
+                [{"text": "✅ 🚀 ✅", "url": "https://ble.ir/BROKER_amlak2"}]
             ]
         }
-        await send_msg(cid, "🔍 برای مشاهده تمامی فایل‌های رهن و اجاره، روی دکمه زیر کلیک کنید:", inline_kb)
+        await send_msg(cid, "🔍 👇 برای مشاهده تمامی فایل‌های رهن و اجاره، روی دکمه زیر کلیک کنید :", inline_kb)
         return
 
     # ۳. بررسی انتخاب تعداد خواب توسط کاربر
