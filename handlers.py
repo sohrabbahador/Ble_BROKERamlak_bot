@@ -177,16 +177,25 @@ async def process_bale_webhook(d: dict):
             from core import handle_start_flow
             await handle_start_flow(cid, uid, "فروش")
             return
+
+        # اضافه شدن مدیریت اختصاصی کلید «جستجوی سریع»
+        elif "جستجوی سریع" in txt:
+            set_session(uid, flow=None)
+            await send_msg(
+                cid, 
+                "🔍 **جستجوی سریع املاک**\n\nلطفاً نام محله (مانند **جنت‌آباد**)، تعداد خواب یا مشخصات مورد نظر خود را تایپ کرده و ارسال کنید:"
+            )
+            return
             
         else:
-            # دریافت آخرین وضعیت سشن برای اعمال دقیق آخرین فیلترها (مانند خواب انتخاب‌شده)
+            # دریافت آخرین وضعیت سشن
             s = get_session(uid) or {}
             if s.get("flow") == "buy":
                 await handle_user_actions(cid, uid, txt, s, adm)
             elif s.get("flow") == "rent":
                 await handle_rent_flow(cid, uid, s, txt)
             else:
-                # جستجوی متنی آزاد (مثل جنت‌آباد) در صورت عدم تطابق با دکمه‌ها و فلوها
+                # جستجوی متنی آزاد (مثل تایپ کردن عبارت جنت‌آباد)
                 keyword = txt.strip()
                 res = search_files_by_keyword(keyword, page=1)
                 
