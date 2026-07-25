@@ -8,8 +8,10 @@ def init_db():
     db["sessions"].create_index("user_id", unique=True)
     db["users"].create_index("user_id", unique=True)
     # ایندکس‌گذاری برای افزایش چشمگیر سرعت جستجوی املاک و فیلترها
-    db["files"].create_index([("kind", 1), ("khab", 1), ("price", 1)])
-    db["files"].create_index("id")
+    db["files"].create_index([("kind", 1), ("khab", 1), ("price", 1), ("meter", 1)])
+    db["files"].create_index("id",
+    unique=True)
+
     
     if db["counters"].count_documents({"_id": "file_id"}) == 0:
         db["counters"].insert_one({"_id": "file_id", "sequence_value": 0})
