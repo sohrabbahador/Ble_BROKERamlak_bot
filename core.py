@@ -10,13 +10,6 @@ def init_db():
     # ایندکس‌گذاری برای افزایش چشمگیر سرعت جستجوی املاک و فیلترها
     db["files"].create_index([("kind", 1), ("khab", 1), ("price", 1), ("meter", 1)])
     
-    # ایجاد ایمن ایندکس برای جلوگیری از خطای تداخل روی هاست
-    try:
-        db["files"].create_index("id", unique=True)
-    except Exception as e:
-        print(f"Index creation note: {e}")
-
-    
     if db["counters"].count_documents({"_id": "file_id"}) == 0:
         db["counters"].insert_one({"_id": "file_id", "sequence_value": 0})
     if db["counters"].count_documents({"_id": "alert_id"}) == 0:
