@@ -4,6 +4,9 @@ import re
 import httpx
 from config import db, TOKEN, BASE_URL, MAIN_CHANNEL_URL, ADMIN_ID
 
+# حافظه موقت برای جلوگیری از ارسال‌های هم‌زمان و لحظه‌ای
+_recent_processed_texts = {}
+
 def init_db():
     db["sessions"].create_index("user_id", unique=True)
     db["users"].create_index("user_id", unique=True)
@@ -110,6 +113,17 @@ async def check_alerts_and_notify(text, kind, khab, price, meter, photos):
         else: await send_msg(alert["user_id"], cap, inline_action(fid))
 
 async def save_file(text, photos_list=None):
+    import time
+    global _recent_processed_texts
+    
+    current_time = time.time()
+    _recent_processed_texts = {t: tm for t, tm in _recent_processed_texts.items() if current_time - tm < 10}
+    
+    if text in _recent_processed_texts:
+        return
+    
+    _recent_processed_texts[text] = current_time
+
     k, kh, p, m, l = extract_info(text)
     
     # جلوگیری از ثبت رکورد تکراری اگر عین متن از قبل در دیتابیس وجود داشته باشد
