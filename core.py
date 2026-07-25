@@ -9,6 +9,11 @@ def init_db():
     db["users"].create_index("user_id", unique=True)
     # ایندکس‌گذاری برای افزایش چشمگیر سرعت جستجوی املاک و فیلترها
     db["files"].create_index([("kind", 1), ("khab", 1), ("price", 1), ("meter", 1)])
+    # ایندکس یکتا برای جلوگیری از ثبت تکراری متون در حالت هم‌زمانی
+    try:
+        db["files"].create_index("text", unique=True)
+    except Exception:
+        pass
     
     if db["counters"].count_documents({"_id": "file_id"}) == 0:
         db["counters"].insert_one({"_id": "file_id", "sequence_value": 0})
@@ -115,11 +120,14 @@ async def save_file(text, photos_list=None):
     photos_json = json.dumps(photos_list if photos_list else [])
     file_id = get_next_sequence_value("file_id")
     
-    db["files"].insert_one({
-        "id": file_id, "text": text, "kind": k, "khab": kh,
-        "price": p, "meter": m, "location": l, "photos": photos_json
-    })
-    await check_alerts_and_notify(text, k, kh, p, m, photos_list)
+    try:
+        db["files"].insert_one({
+            "id": file_id, "text": text, "kind": k, "khab": kh,
+            "price": p, "meter": m, "location": l, "photos": photos_json
+        })
+        await check_alerts_and_notify(text, k, kh, p, m, photos_list)
+    except Exception:
+        pass
 
 def set_session(user_id, **kwargs):
     db["sessions"].update_one(
