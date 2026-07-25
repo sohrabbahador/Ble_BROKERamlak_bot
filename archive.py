@@ -148,7 +148,7 @@ async def handle_membership_flow(cid, user_id, is_admin, cb_data, txt, MAIN_CHAN
 
 # ۱۱. ارسال پیام خوش‌آمدگویی
 async def send_welcome_message(cid, name, user_id, is_admin, MAIN_CHANNEL_URL, kb_main_func):
-    welcome_text = f"💐 به خدمات ملکی هوشمند «بروکر املاک» خوش آمدید 💐\n\n🚀 کانال اصلی:\n{MAIN_CHANNEL_URL}"
+    welcome_text = f"💐* به خدمات ملکی هوشمند «بروکر املاک» خوش آمدید * 💐\n\n🚀 کانال اصلی:\n{MAIN_CHANNEL_URL}"
     main_kb = kb_main_func(is_admin) if callable(kb_main_func) else {}
     await send_msg(cid, welcome_text, main_kb)
 
