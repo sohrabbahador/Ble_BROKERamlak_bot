@@ -73,6 +73,6 @@ async def handle_rent_flow(cid, user_id, s, txt):
     else:
         await send_msg(
             cid,
-            "لطفاً از منو برای انتخاب تعداد خواب یا مشاهده کلی فایل‌ها استفاده کنید.",
+            "لطفاً از منو گزینه مورد نظر را انتخاب کنید.",
             kb_khab_selection(),
         )
