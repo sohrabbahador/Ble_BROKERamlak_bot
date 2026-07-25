@@ -94,6 +94,11 @@ async def process_bale_webhook(d: dict):
                 )
                 return
 
+            if await handle_membership_flow(
+                cid, uid, adm, cb, txt, MAIN_CHANNEL_URL, kb_main, is_member
+            ):
+                return
+
         if cb and txt == "check_membership":
             ok = await is_member(uid)
             await send_msg(
@@ -101,11 +106,6 @@ async def process_bale_webhook(d: dict):
                 "✅ عضویت شما تایید شد. اکنون می‌توانید از تمامی خدمات استفاده کنید." if ok else "❌ شما هنوز عضو نشده‌اید! لطفاً ابتدا عضو شوید و سپس دکمه تایید را بزنید.",
                 kb_main(adm) if ok else None,
             )
-            return
-
-        if await handle_membership_flow(
-            cid, uid, adm, cb, txt, MAIN_CHANNEL_URL, kb_main, is_member
-        ):
             return
 
         if cb and txt.startswith("fav:"):
