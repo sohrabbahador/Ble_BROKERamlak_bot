@@ -29,6 +29,7 @@ async def webhook(req: Request):
 
 # بخش جدید و حیاتی برای رفع خطای Render
 if __name__ == "__main__":
+    
     # خواندن پورت از محیط Render یا استفاده از ۸۰۸۰ به صورت پیش‌فرض
     port = int(os.environ.get("PORT", 8080))
     # اجرای برنامه با uvicorn روی پورت مشخص شده
