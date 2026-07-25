@@ -8,7 +8,7 @@ from keyboards import inline_action, kb_khab, kb_main, kb_budget_2khab, kb_budge
 
 # تعریف دکمه صفحه بعد
 def kb_next():
-    return {"keyboard": [[{"text": "صفحه بعد ➡️"}, {"text": "بازگشت به منو اصلی"}]], "resize_keyboard": True}
+    return {"keyboard": [[{"text": "بازگشت به منو اصلی"}]], "resize_keyboard": True}
 
 # --- متغیر سراسری برای ذخیره کاربران هشدار دیده ---
 warned_users = set()
