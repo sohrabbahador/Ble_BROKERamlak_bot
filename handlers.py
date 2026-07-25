@@ -28,11 +28,6 @@ from rent_property import handle_rent_flow
 
 
 async def is_member(user_id):
-    # بررسی کش در دیتابیس برای جلوگیری از درخواست‌های تکراری و افزایش سرعت پاسخ‌گویی
-    user_doc = db["users"].find_one({"user_id": user_id})
-    if user_doc and user_doc.get("is_channel_member"):
-        return True
-        
     try:
         u = f"@{MAIN_CHANNEL_URL.split('/')[-1].lstrip('@')}"
         async with httpx.AsyncClient(timeout=3.0) as c:
@@ -46,10 +41,16 @@ async def is_member(user_id):
                 "administrator",
                 "creator",
             ]
-            if is_ok:
-                db["users"].update_one({"user_id": user_id}, {"$set": {"is_channel_member": True}}, upsert=True)
+            db["users"].update_one(
+                {"user_id": user_id}, 
+                {"$set": {"is_channel_member": is_ok}}, 
+                upsert=True
+            )
             return is_ok
     except:
+        user_doc = db["users"].find_one({"user_id": user_id})
+        if user_doc and user_doc.get("is_channel_member"):
+            return True
         return False
 
 
@@ -94,11 +95,6 @@ async def process_bale_webhook(d: dict):
                 )
                 return
 
-            if await handle_membership_flow(
-                cid, uid, adm, cb, txt, MAIN_CHANNEL_URL, kb_main, is_member
-            ):
-                return
-
         if cb and txt == "check_membership":
             ok = await is_member(uid)
             await send_msg(
@@ -106,6 +102,11 @@ async def process_bale_webhook(d: dict):
                 "✅ عضویت شما تایید شد. اکنون می‌توانید از تمامی خدمات استفاده کنید." if ok else "❌ شما هنوز عضو نشده‌اید! لطفاً ابتدا عضو شوید و سپس دکمه تایید را بزنید.",
                 kb_main(adm) if ok else None,
             )
+            return
+
+        if await handle_membership_flow(
+            cid, uid, adm, cb, txt, MAIN_CHANNEL_URL, kb_main, is_member
+        ):
             return
 
         if cb and txt.startswith("fav:"):
@@ -148,7 +149,7 @@ async def process_bale_webhook(d: dict):
                 sc = 0
                 for u in users:
                     try:
-                        await send_msg(u["user_id"], f"📢 **پیام مدیریت:**\n\n{txt}")
+                        await send_msg(u["user_id"], f"📢 پیام مدیریت:\n\n{txt}")
                         sc += 1
                     except:
                         pass
