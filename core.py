@@ -9,8 +9,12 @@ def init_db():
     db["users"].create_index("user_id", unique=True)
     # ایندکس‌گذاری برای افزایش چشمگیر سرعت جستجوی املاک و فیلترها
     db["files"].create_index([("kind", 1), ("khab", 1), ("price", 1), ("meter", 1)])
-    db["files"].create_index("id",
-    unique=True)
+    
+    # ایجاد ایمن ایندکس برای جلوگیری از خطای تداخل روی هاست
+    try:
+        db["files"].create_index("id", unique=True)
+    except Exception as e:
+        print(f"Index creation note: {e}")
 
     
     if db["counters"].count_documents({"_id": "file_id"}) == 0:
@@ -230,5 +234,3 @@ def search_files_by_keyword(keyword, page=1):
     
     query = {"text": {"$regex": normalized_keyword, "$options": "i"}}
     return list(db["files"].find(query).skip(skip).limit(limit))
-    
-    
