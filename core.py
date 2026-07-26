@@ -143,6 +143,12 @@ async def save_file(text, photos_list=None):
     except Exception:
         pass
 
+def remove_file_by_content(text):
+    try:
+        db["files"].delete_many({"text": text})
+    except Exception as e:
+        print(f"Error removing file: {e}")
+
 def set_session(user_id, **kwargs):
     db["sessions"].update_one(
         {"user_id": user_id},
