@@ -7,7 +7,8 @@ from core import (
     save_file, 
     send_msg,
     set_session,
-    search_files_by_keyword
+    search_files_by_keyword,
+    remove_file_by_content
 )
 from archive import (
     add_to_favorites,
@@ -79,8 +80,11 @@ async def process_bale_webhook(d: dict):
         uid, adm = cid, cid == ADMIN_ID
 
         if ct == "channel":
-            if msg and "photo" in msg and "موجود" in txt:
-                await save_file(txt, [msg["photo"][-1]["file_id"]])
+            if msg and "photo" in msg:
+                if "موجود" in txt:
+                    await save_file(txt, [msg["photo"][-1]["file_id"]])
+                else:
+                    remove_file_by_content(txt)
             return
 
         if ct == "private":
