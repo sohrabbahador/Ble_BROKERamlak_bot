@@ -145,7 +145,19 @@ async def save_file(text, photos_list=None):
 
 def remove_file_by_content(text):
     try:
-        db["files"].delete_many({"text": text})
+        # استخراج مشخصات کلیدی ملک ویرایش‌شده (مثل موقعیت و متراژ) برای یافتن و پاک کردن رکورد قبلی با وضعیت موجود
+        _, _, _, meter, location = extract_info(text)
+        
+        query = {}
+        if location and location != "نامشخص":
+            query["location"] = location
+        if meter:
+            query["meter"] = meter
+            
+        if query:
+            db["files"].delete_many(query)
+        else:
+            db["files"].delete_many({"text": text})
     except Exception as e:
         print(f"Error removing file: {e}")
 
