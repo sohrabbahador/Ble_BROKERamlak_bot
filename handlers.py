@@ -166,7 +166,7 @@ async def process_bale_webhook(d: dict):
             return
 
         if "🔙 مرحله قبل" in txt:
-            await handle_back_site = await handle_back_step(cid, uid, adm) # حفظ ساختار دقیق
+            await handle_back_step(cid, uid, adm)
         elif "علاقه‌مندی‌ها" in txt:
             await show_favorites(cid, uid, adm)
         elif "پشتیبانی" in txt:
