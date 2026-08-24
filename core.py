@@ -1,4 +1,3 @@
-# core.py
 import json
 import re
 import httpx
@@ -24,6 +23,19 @@ def init_db():
         db["counters"].insert_one({"_id": "alert_id", "sequence_value": 0})
     if db["counters"].count_documents({"_id": "fav_id"}) == 0:
         db["counters"].insert_one({"_id": "fav_id", "sequence_value": 0})
+    if db["settings"].count_documents({"_id": "bot_status"}) == 0:
+        db["settings"].insert_one({"_id": "bot_status", "maintenance": False})
+
+def is_maintenance():
+    doc = db["settings"].find_one({"_id": "bot_status"})
+    return bool(doc and doc.get("maintenance", False))
+
+def set_maintenance(enabled: bool):
+    db["settings"].update_one(
+        {"_id": "bot_status"},
+        {"$set": {"maintenance": enabled}},
+        upsert=True
+    )
 
 def get_next_sequence_value(sequence_name):
     sequence_document = db["counters"].find_one_and_update(
