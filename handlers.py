@@ -1,4 +1,3 @@
-# handlers.py
 import httpx
 from config import ADMIN_ID, MAIN_CHANNEL_URL, TOKEN, db
 from core import (
@@ -8,7 +7,9 @@ from core import (
     send_msg,
     set_session,
     search_files_by_keyword,
-    remove_file_by_content
+    remove_file_by_content,
+    is_maintenance,
+    set_maintenance
 )
 from archive import (
     add_to_favorites,
@@ -79,6 +80,21 @@ async def process_bale_webhook(d: dict):
             return
         uid, adm = cid, cid == ADMIN_ID
 
+        # ========== حالت تعمیرات (قفل کامل برای کاربران عادی) ==========
+        if is_maintenance() and not adm:
+            if ct == "private":
+                remove_kb = {"remove_keyboard": True}
+                await send_msg(
+                    cid,
+                    "🔧 *سیستم در حال به‌روزرسانی است*\n\n"
+                    "لطفاً چند لحظه صبر کنید.\n"
+                    "در سریع‌ترین زمان ممکن به خدمات بهینه و هوشمند «بروکر املاک» بازخواهید گشت.\n\n"
+                    "از شکیبایی شما سپاسگزاریم 🙏",
+                    remove_kb
+                )
+            return
+        # =============================================================
+
         if ct == "channel":
             if msg and "photo" in msg:
                 if "موجود" in txt:
@@ -123,6 +139,14 @@ async def process_bale_webhook(d: dict):
         s = get_session(uid) or {}
 
         if adm:
+            if "🔒 فعال‌سازی حالت تعمیرات" in txt:
+                set_maintenance(True)
+                await send_msg(cid, "🔒 *حالت تعمیرات فعال شد.*\n\nکاربران عادی دیگر به ربات دسترسی ندارند و کیبورد آن‌ها حذف می‌شود.")
+                return
+            if "🔓 غیرفعال‌سازی حالت تعمیرات" in txt:
+                set_maintenance(False)
+                await send_msg(cid, "🔓 *حالت تعمیرات غیرفعال شد.*\n\nربات برای تمام کاربران دوباره فعال است.")
+                return
             if "📊 آمار ربات" in txt:
                 stats_text = await get_bot_stats()
                 await send_msg(cid, stats_text)
