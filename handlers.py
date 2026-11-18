@@ -58,10 +58,10 @@ async def is_member(user_id):
 
 async def process_bale_webhook(d: dict):
     try:
-        cb, msg = (
-            d.get("callback_query"),
-            d.get("message") or d.get("edited_message") or d.get("body"),
-        )
+        cb = d.get("callback_query")
+        # پیام‌های کانال بله نیز مانند پیام‌های خصوصی ویرایش‌شده پردازش شوند.
+        channel_msg = d.get("channel_post") or d.get("edited_channel_post")
+        msg = channel_msg or d.get("message") or d.get("edited_message") or d.get("body")
         if cb:
             cid, ct, txt = (
                 cb["message"]["chat"]["id"],
@@ -95,11 +95,24 @@ async def process_bale_webhook(d: dict):
         # =============================================================
 
         if ct == "channel":
-            if msg and "photo" in msg:
-                if "موجود" in txt:
-                    await save_file(txt, [msg["photo"][-1]["file_id"]])
+            if msg:
+                photos = [msg["photo"][-1]["file_id"]] if msg.get("photo") else []
+                # «ناموجود» نباید به‌اشتباه به‌عنوان «موجود» تشخیص داده شود.
+                is_available = ("موجود" in txt) and ("ناموجود" not in txt)
+                source_chat_id = msg.get("chat", {}).get("id")
+                source_message_id = msg.get("message_id")
+                if is_available and txt.strip():
+                    await save_file(
+                        txt, photos,
+                        source_chat_id=source_chat_id,
+                        source_message_id=source_message_id
+                    )
                 else:
-                    remove_file_by_content(txt)
+                    remove_file_by_content(
+                        txt,
+                        source_chat_id=source_chat_id,
+                        source_message_id=source_message_id
+                    )
             return
 
         if ct == "private":

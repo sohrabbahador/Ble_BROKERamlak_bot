@@ -124,54 +124,99 @@ async def check_alerts_and_notify(text, kind, khab, price, meter, photos):
         if photos: await send_pic(alert["user_id"], photos[0], cap, inline_action(fid))
         else: await send_msg(alert["user_id"], cap, inline_action(fid))
 
-async def save_file(text, photos_list=None):
+async def save_file(text, photos_list=None, source_chat_id=None, source_message_id=None):
+    """ثبت/به‌روزرسانی فایل فروش؛ هر پیام کانال فقط یک رکورد مستقل دارد."""
     import time
     global _recent_processed_texts
-    
-    current_time = time.time()
-    _recent_processed_texts = {t: tm for t, tm in _recent_processed_texts.items() if current_time - tm < 10}
-    
-    if text in _recent_processed_texts:
+
+    text = (text or "").strip()
+    if not text:
         return
-    
-    _recent_processed_texts[text] = current_time
+
+    current_time = time.time()
+    _recent_processed_texts = {
+        t: tm for t, tm in _recent_processed_texts.items()
+        if current_time - tm < 10
+    }
+
+    # جلوگیری از پردازش تکراری webhook؛ برای پیام‌های دارای شناسه، خود رکورد معیار اصلی است.
+    dedupe_key = f"{source_chat_id}:{source_message_id}:{text}" if source_message_id else text
+    if dedupe_key in _recent_processed_texts:
+        return
+    _recent_processed_texts[dedupe_key] = current_time
 
     k, kh, p, m, l = extract_info(text)
-    
-    # جلوگیری از ثبت رکورد تکراری اگر عین متن از قبل در دیتابیس وجود داشته باشد
-    existing = db["files"].find_one({"text": text})
-    if existing:
-        return
+    # این ربات، ربات فروش است؛ نوع فایل را صریحاً فروش نگه می‌داریم.
+    k = "فروش"
+    photos_json = json.dumps(photos_list if photos_list else [], ensure_ascii=False)
 
-    photos_json = json.dumps(photos_list if photos_list else [])
-    file_id = get_next_sequence_value("file_id")
-    
-    try:
-        db["files"].insert_one({
-            "id": file_id, "text": text, "kind": k, "khab": kh,
-            "price": p, "meter": m, "location": l, "photos": photos_json
-        })
-        await check_alerts_and_notify(text, k, kh, p, m, photos_list)
-    except Exception:
-        pass
+    record = {
+        "text": text,
+        "kind": k,
+        "khab": kh,
+        "price": p,
+        "meter": m,
+        "location": l,
+        "photos": photos_json,
+        "source": "sale_bale",
+        "is_available": True,
+        "updated_at": current_time,
+    }
+    if source_chat_id is not None:
+        record["source_chat_id"] = source_chat_id
+    if source_message_id is not None:
+        record["source_message_id"] = source_message_id
 
-def remove_file_by_content(text):
     try:
-        # استخراج مشخصات کلیدی ملک ویرایش‌شده (مثل موقعیت و متراژ) برای یافتن و پاک کردن رکورد قبلی با وضعیت موجود
-        _, _, _, meter, location = extract_info(text)
-        
-        query = {}
-        if location and location != "نامشخص":
-            query["location"] = location
-        if meter:
-            query["meter"] = meter
-            
-        if query:
-            db["files"].delete_many(query)
+        if source_chat_id is not None and source_message_id is not None:
+            existing = db["files"].find_one({
+                "source": "sale_bale",
+                "source_chat_id": source_chat_id,
+                "source_message_id": source_message_id,
+            })
+            if existing:
+                db["files"].update_one(
+                    {"_id": existing["_id"]},
+                    {"$set": record}
+                )
+                return
+
+        # سازگاری با فایل‌های قدیمی فروش که قبل از ثبت شناسه پیام ذخیره شده‌اند.
+        existing = db["files"].find_one({"text": text, "kind": "فروش"})
+        if existing:
+            db["files"].update_one(
+                {"_id": existing["_id"]},
+                {"$set": {**record, "id": existing.get("id")}}
+            )
         else:
-            db["files"].delete_many({"text": text})
+            record["id"] = get_next_sequence_value("file_id")
+            db["files"].insert_one(record)
+
+        await check_alerts_and_notify(text, k, kh, p, m, photos_list)
     except Exception as e:
-        print(f"Error removing file: {e}")
+        print(f"Error saving sale file: {e}")
+
+
+def remove_file_by_content(text, source_chat_id=None, source_message_id=None):
+    """ناموجود کردن فقط همان فایل فروش؛ هیچ رکوردی از رهن و اجاره حذف نمی‌شود."""
+    try:
+        query = {"kind": "فروش", "source": "sale_bale"}
+        if source_chat_id is not None and source_message_id is not None:
+            query.update({
+                "source_chat_id": source_chat_id,
+                "source_message_id": source_message_id,
+            })
+        else:
+            # مسیر سازگاری قدیمی فقط با تطبیق دقیق متن؛ حذف بر اساس مکان/متراژ ممنوع است.
+            query["text"] = (text or "").strip()
+
+        db["files"].update_many(
+            query,
+            {"$set": {"is_available": False, "updated_at": __import__("time").time()}}
+        )
+    except Exception as e:
+        print(f"Error marking sale file unavailable: {e}")
+
 
 def set_session(user_id, **kwargs):
     db["sessions"].update_one(
@@ -277,5 +322,8 @@ def search_files_by_keyword(keyword, page=1):
     # تبدیل فاصله و نیم‌فاصله به الگوی منعطف برای تمام کلمات و اعداد
     normalized_keyword = re.sub(r'[\s‌]+', r'[\\s‌]*', keyword.strip())
     
-    query = {"text": {"$regex": normalized_keyword, "$options": "i"}}
+    query = {
+        "text": {"$regex": normalized_keyword, "$options": "i"},
+        "$or": [{"is_available": True}, {"is_available": {"$exists": False}}],
+    }
     return list(db["files"].find(query).skip(skip).limit(limit))
