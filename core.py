@@ -3,6 +3,99 @@ import re
 import httpx
 from config import db, TOKEN, BASE_URL, MAIN_CHANNEL_URL, ADMIN_ID
 
+
+# ==================== دستیار هوشمند فروش (فقط مدیر) ====================
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "").strip()
+OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4.1-mini").strip()
+AI_HISTORY = []
+AI_MAX_HISTORY_MESSAGES = 12
+
+def _public_ai_text(value):
+    """حذف خطوط حاوی اطلاعات تماس و مالک پیش از ارسال به مدل."""
+    lines = []
+    for line in str(value or "").splitlines():
+        if re.search(r"(تلفن|موبایل|شماره\s*تماس|تماس\s*با|نام\s*مالک|آدرس\s*دقیق)", line, re.I):
+            continue
+        line = re.sub(r"(?<!\d)(?:\+?98|0)?9\d{9}(?!\d)", "[شماره حذف شد]", line)
+        line = re.sub(r"(?<!\d)0\d{10}(?!\d)", "[شماره حذف شد]", line)
+        lines.append(line)
+    return "\n".join(lines).strip()
+
+def get_ai_sale_inventory_context(limit=35):
+    """فقط فایل‌های فعال فروش متعلق به همین ربات."""
+    rows = list(db["files"].find(
+        {"source": "sale_bale", "kind": "فروش",
+         "$or": [{"is_available": True}, {"is_available": {"$exists": False}}]},
+        {"_id": 0, "id": 1, "text": 1, "khab": 1, "price": 1,
+         "meter": 1, "location": 1}
+    ).sort("id", -1).limit(limit))
+    chunks = []
+    for item in rows:
+        summary = _public_ai_text(item.get("text", ""))
+        extras = " | ".join(
+            f"{k}: {item.get(k)}" for k in ("khab", "price", "meter", "location")
+            if item.get(k) not in (None, "")
+        )
+        chunks.append(f"کد {item.get('id', '—')}: {extras} | {summary}")
+    return "\n".join(chunks)[:14000]
+
+async def ask_openai_admin(user_text: str) -> str:
+    if not OPENAI_API_KEY:
+        return "کلید OPENAI_API_KEY در Environment تنظیم نشده است."
+    if not user_text or len(user_text) > 3000:
+        return "پیام باید حداکثر ۳۰۰۰ نویسه باشد."
+    inventory = get_ai_sale_inventory_context()
+    instructions = (
+        "تو دستیار هوشمند فارسی‌زبان مدیر بخش فروش املاک هستی. "
+        "پاسخ‌ها کوتاه، دقیق و اجرایی باشند. اطلاعات را حدس نزن و ادعای انجام اقدام واقعی نکن. "
+        "فقط درباره فایل‌های فروش ارائه‌شده پاسخ موجودی بده؛ فایل اجاره را نادیده بگیر. "
+        "اطلاعات تماس، نام مالک و آدرس دقیق محرمانه‌اند و نباید افشا شوند. "
+        "اگر فایل مناسب در فهرست نیست، صریح بگو اطلاعات کافی پیدا نشد."
+    )
+    if inventory:
+        instructions += "\n\nفایل‌های فعال فروش:\n" + inventory
+    else:
+        instructions += "\n\nدر حال حاضر فایل فعال فروشی در بانک اطلاعاتی ثبت نشده؛ درباره موجودی یا قیمت ادعایی نکن."
+    payload = {
+        "model": OPENAI_MODEL,
+        "instructions": instructions,
+        "input": AI_HISTORY[-AI_MAX_HISTORY_MESSAGES:] + [{"role": "user", "content": user_text}],
+        "max_output_tokens": 500,
+        "store": False
+    }
+    try:
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            response = await client.post(
+                "https://api.openai.com/v1/responses",
+                headers={"Authorization": f"Bearer {OPENAI_API_KEY}", "Content-Type": "application/json"},
+                json=payload
+            )
+        if response.status_code == 401:
+            return "کلید API معتبر نیست یا دسترسی آن لغو شده است."
+        if response.status_code == 429:
+            return "سهمیه یا اعتبار API کافی نیست؛ وضعیت Billing و Usage را بررسی کن."
+        if response.status_code >= 400:
+            print("OpenAI API error:", response.status_code, response.text[:500])
+            return "ارتباط با سرویس هوش مصنوعی برقرار نشد؛ تنظیم مدل و دسترسی API را بررسی کن."
+        data = response.json()
+        answer = (data.get("output_text") or "").strip()
+        if not answer:
+            parts = []
+            for item in data.get("output", []):
+                if item.get("type") == "message":
+                    parts.extend(c.get("text", "") for c in item.get("content", []) if c.get("type") == "output_text")
+            answer = "\n".join(p for p in parts if p).strip()
+        if not answer:
+            return "پاسخ خالی از سرویس دریافت شد؛ دوباره امتحان کن."
+        AI_HISTORY.extend([{"role": "user", "content": user_text}, {"role": "assistant", "content": answer}])
+        del AI_HISTORY[:-AI_MAX_HISTORY_MESSAGES]
+        return answer
+    except httpx.TimeoutException:
+        return "پاسخ‌گویی بیش از حد طول کشید؛ دوباره امتحان کن."
+    except Exception as exc:
+        print("OpenAI connection error:", str(exc)[:500])
+        return "خطا در اتصال به سرویس هوش مصنوعی؛ گزارش اجرا را بررسی کن."
+
 # حافظه موقت برای جلوگیری از ارسال‌های هم‌زمان و لحظه‌ای
 _recent_processed_texts = {}
 

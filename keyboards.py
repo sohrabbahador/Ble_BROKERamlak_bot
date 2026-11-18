@@ -14,6 +14,7 @@ def kb_main(is_admin=False):
     if is_admin:
         kb.append([{"text": "📊 آمار ربات"}, {"text": "👥 لیست کاربران"}])
         kb.append([{"text": "📢 ارسال پیام همگانی"}, {"text": "بازگشت به منو اصلی"}])
+        kb.append([{"text": "🤖 دستیار هوشمند فروش"}])
         kb.append([{"text": "🔒 فعال‌سازی حالت تعمیرات"}, {"text": "🔓 غیرفعال‌سازی حالت تعمیرات"}])
 
     return {"keyboard": kb, "resize_keyboard": True}
