@@ -10,9 +10,9 @@ from core import (
     remove_file_by_content,
     is_maintenance,
     set_maintenance,
-    OPENAI_API_KEY,
+    GEMINI_API_KEY,
     AI_HISTORY,
-    ask_openai_admin
+    ask_gemini_admin
 )
 from archive import (
     add_to_favorites,
@@ -157,8 +157,8 @@ async def process_bale_webhook(d: dict):
         ai_state = db["admin_state"].find_one({"_id": cid}) or {}
         ai_mode = bool(ai_state.get("ai_sale_mode")) if adm else False
         if adm and txt in ["🤖 دستیار هوشمند فروش", "/ai"]:
-            if not OPENAI_API_KEY:
-                await send_msg(cid, "کلید OPENAI_API_KEY در Environment تنظیم نشده است.", kb_main(adm))
+            if not GEMINI_API_KEY:
+                await send_msg(cid, "کلید GEMINI_API_KEY در Environment تنظیم نشده است.", kb_main(adm))
                 return
             db["admin_state"].update_one({"_id": cid}, {"$set": {"ai_sale_mode": True}}, upsert=True)
             await send_msg(cid, "🤖 دستیار هوشمند فروش فعال شد. سؤال خودت را بفرست. برای خروج /ai_off را بزن.", kb_main(adm))
@@ -169,7 +169,7 @@ async def process_bale_webhook(d: dict):
             await send_msg(cid, "حالت دستیار فروش خاموش شد و تاریخچه موقت پاک شد.", kb_main(adm))
             return
         if ai_mode and txt and not txt.startswith("/"):
-            answer = await ask_openai_admin(txt)
+            answer = await ask_gemini_admin(txt)
             await send_msg(cid, answer, kb_main(adm))
             return
 

@@ -6,8 +6,8 @@ from config import db, TOKEN, BASE_URL, MAIN_CHANNEL_URL, ADMIN_ID
 
 
 # ==================== دستیار هوشمند فروش (فقط مدیر) ====================
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "").strip()
-OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4.1-mini").strip()
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "").strip()
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash-lite").strip()
 AI_HISTORY = []
 AI_MAX_HISTORY_MESSAGES = 12
 
@@ -15,12 +15,12 @@ def _public_ai_text(value):
     """حذف خطوط حاوی اطلاعات تماس و مالک پیش از ارسال به مدل."""
     lines = []
     for line in str(value or "").splitlines():
-        if re.search(r"(تلفن|موبایل|شماره\s*تماس|تماس\s*با|نام\s*مالک|آدرس\s*دقیق)", line, re.I):
+        if re.search(r"(تلفن|موبایل|شماره\\s*تماس|تماس\\s*با|نام\\s*مالک|آدرس\\s*دقیق)", line, re.I):
             continue
-        line = re.sub(r"(?<!\d)(?:\+?98|0)?9\d{9}(?!\d)", "[شماره حذف شد]", line)
-        line = re.sub(r"(?<!\d)0\d{10}(?!\d)", "[شماره حذف شد]", line)
+        line = re.sub(r"(?<!\\d)(?:\\+?98|0)?9\\d{9}(?!\\d)", "[شماره حذف شد]", line)
+        line = re.sub(r"(?<!\\d)0\\d{10}(?!\\d)", "[شماره حذف شد]", line)
         lines.append(line)
-    return "\n".join(lines).strip()
+    return "\\n".join(lines).strip()
 
 def get_ai_sale_inventory_context(limit=35):
     """فقط فایل‌های فعال فروش متعلق به همین ربات."""
@@ -38,11 +38,11 @@ def get_ai_sale_inventory_context(limit=35):
             if item.get(k) not in (None, "")
         )
         chunks.append(f"کد {item.get('id', '—')}: {extras} | {summary}")
-    return "\n".join(chunks)[:14000]
+    return "\\n".join(chunks)[:14000]
 
-async def ask_openai_admin(user_text: str) -> str:
-    if not OPENAI_API_KEY:
-        return "کلید OPENAI_API_KEY در Environment تنظیم نشده است."
+async def ask_gemini_admin(user_text: str) -> str:
+    if not GEMINI_API_KEY:
+        return "کلید GEMINI_API_KEY در Environment تنظیم نشده است."
     if not user_text or len(user_text) > 3000:
         return "پیام باید حداکثر ۳۰۰۰ نویسه باشد."
     inventory = get_ai_sale_inventory_context()
@@ -54,48 +54,51 @@ async def ask_openai_admin(user_text: str) -> str:
         "اگر فایل مناسب در فهرست نیست، صریح بگو اطلاعات کافی پیدا نشد."
     )
     if inventory:
-        instructions += "\n\nفایل‌های فعال فروش:\n" + inventory
+        instructions += "\\n\\nفایل‌های فعال فروش:\\n" + inventory
     else:
-        instructions += "\n\nدر حال حاضر فایل فعال فروشی در بانک اطلاعاتی ثبت نشده؛ درباره موجودی یا قیمت ادعایی نکن."
+        instructions += "\\n\\nدر حال حاضر فایل فعال فروشی در بانک اطلاعاتی ثبت نشده؛ درباره موجودی یا قیمت ادعایی نکن."
+
+    contents = []
+    for item in AI_HISTORY[-AI_MAX_HISTORY_MESSAGES:]:
+        role = "model" if item.get("role") == "assistant" else "user"
+        contents.append({"role": role, "parts": [{"text": item.get("content", "")}]})
+    contents.append({"role": "user", "parts": [{"text": user_text}]})
     payload = {
-        "model": OPENAI_MODEL,
-        "instructions": instructions,
-        "input": AI_HISTORY[-AI_MAX_HISTORY_MESSAGES:] + [{"role": "user", "content": user_text}],
-        "max_output_tokens": 500,
-        "store": False
+        "systemInstruction": {"parts": [{"text": instructions}]},
+        "contents": contents,
+        "generationConfig": {"maxOutputTokens": 500, "temperature": 0.4}
     }
     try:
         async with httpx.AsyncClient(timeout=60.0) as client:
             response = await client.post(
-                "https://api.openai.com/v1/responses",
-                headers={"Authorization": f"Bearer {OPENAI_API_KEY}", "Content-Type": "application/json"},
+                f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent",
+                headers={"x-goog-api-key": GEMINI_API_KEY, "Content-Type": "application/json"},
                 json=payload
             )
-        if response.status_code == 401:
-            return "کلید API معتبر نیست یا دسترسی آن لغو شده است."
+        if response.status_code in (401, 403):
+            return "کلید Gemini معتبر نیست یا دسترسی API برای آن فعال نیست."
         if response.status_code == 429:
-            return "سهمیه یا اعتبار API کافی نیست؛ وضعیت Billing و Usage را بررسی کن."
+            return "سهمیه رایگان Gemini فعلاً به پایان رسیده یا محدودیت درخواست اعمال شده؛ کمی بعد دوباره امتحان کن."
         if response.status_code >= 400:
-            print("OpenAI API error:", response.status_code, response.text[:500])
-            return "ارتباط با سرویس هوش مصنوعی برقرار نشد؛ تنظیم مدل و دسترسی API را بررسی کن."
+            print("Gemini API error:", response.status_code, response.text[:500])
+            return "ارتباط با Gemini برقرار نشد؛ مدل و دسترسی API را بررسی کن."
         data = response.json()
-        answer = (data.get("output_text") or "").strip()
+        candidates = data.get("candidates", [])
+        answer = "\\n".join(
+            part.get("text", "")
+            for part in (candidates[0].get("content", {}).get("parts", []) if candidates else [])
+            if part.get("text")
+        ).strip()
         if not answer:
-            parts = []
-            for item in data.get("output", []):
-                if item.get("type") == "message":
-                    parts.extend(c.get("text", "") for c in item.get("content", []) if c.get("type") == "output_text")
-            answer = "\n".join(p for p in parts if p).strip()
-        if not answer:
-            return "پاسخ خالی از سرویس دریافت شد؛ دوباره امتحان کن."
+            return "پاسخ خالی از Gemini دریافت شد؛ دوباره امتحان کن."
         AI_HISTORY.extend([{"role": "user", "content": user_text}, {"role": "assistant", "content": answer}])
         del AI_HISTORY[:-AI_MAX_HISTORY_MESSAGES]
         return answer
     except httpx.TimeoutException:
         return "پاسخ‌گویی بیش از حد طول کشید؛ دوباره امتحان کن."
     except Exception as exc:
-        print("OpenAI connection error:", str(exc)[:500])
-        return "خطا در اتصال به سرویس هوش مصنوعی؛ گزارش اجرا را بررسی کن."
+        print("Gemini connection error:", str(exc)[:500])
+        return "خطا در اتصال به Gemini؛ گزارش اجرا را بررسی کن."
 
 # حافظه موقت برای جلوگیری از ارسال‌های هم‌زمان و لحظه‌ای
 _recent_processed_texts = {}
