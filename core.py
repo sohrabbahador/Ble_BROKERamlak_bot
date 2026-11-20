@@ -328,7 +328,11 @@ def get_session(user_id):
     return db["sessions"].find_one({"user_id": user_id})
 
 def search_files(kind, khab=None, bmin=None, bmax=None, mmin=None, mmax=None, page=1, cid=None, user_id=None):
-    query = {"kind": kind}
+    # فقط فایل‌های موجود نمایش داده شوند؛ رکوردهای قدیمیِ بدون فیلد وضعیت حفظ می‌شوند.
+    query = {
+        "kind": kind,
+        "$or": [{"is_available": True}, {"is_available": {"$exists": False}}],
+    }
     if khab: query["khab"] = khab
     
     price_filter = {}
